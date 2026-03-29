@@ -1,0 +1,817 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
+<title>AçaíPoints — Painel do Dono</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Sora:wght@400;500;600;700;800&family=Space+Mono:wght@400;700&display=swap" rel="stylesheet">
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+<style>
+*{box-sizing:border-box;margin:0;padding:0;-webkit-tap-highlight-color:transparent}
+:root{
+  --brand:#6D28D9;--brand2:#7C3AED;--brand-dark:#4C1D95;
+  --brand-light:#EDE9FE;--brand-mid:#C4B5FD;
+  --green:#059669;--green-light:#D1FAE5;
+  --red:#DC2626;--red-light:#FEE2E2;
+  --amber:#D97706;--amber-light:#FEF3C7;
+  --bg:#F0EDFF;--card:#FFFFFF;--card2:#F7F5FF;
+  --text:#1E1033;--muted:#7C6FA0;--border:#DDD6FE;
+  --shadow:0 1px 4px rgba(109,40,217,.08);
+  --r:14px;--r-sm:9px;--r-xs:6px;
+  --font:'Sora',sans-serif;--mono:'Space Mono',monospace;
+}
+@media(prefers-color-scheme:dark){
+  :root{
+    --bg:#0C0818;--card:#160F2E;--card2:#1F1640;
+    --text:#F3EFFF;--muted:#9D8EC0;--border:#2D1F60;
+    --brand-light:#1E1040;--brand-mid:#3B2080;
+    --green-light:#042F20;--red-light:#2D0808;--amber-light:#2D1500;
+  }
+}
+body{font-family:var(--font);background:var(--bg);color:var(--text);min-height:100vh;font-size:15px;line-height:1.5}
+#app{max-width:500px;margin:0 auto;min-height:100vh;display:flex;flex-direction:column}
+
+header{background:linear-gradient(135deg,var(--brand-dark) 0%,var(--brand2) 100%);color:white;padding:1rem 1.25rem 0;position:sticky;top:0;z-index:100;box-shadow:0 2px 20px rgba(109,40,217,.35)}
+.hdr-top{display:flex;align-items:center;justify-content:space-between;margin-bottom:.875rem}
+.brand{display:flex;align-items:center;gap:.5rem}
+.brand-logo{width:38px;height:38px;background:rgba(255,255,255,.15);border-radius:10px;display:flex;align-items:center;justify-content:center;font-size:20px}
+.brand-text{font-size:18px;font-weight:800;letter-spacing:-.5px;line-height:1}
+.brand-text small{opacity:.7;font-size:10px;display:block;font-weight:500;letter-spacing:.8px;text-transform:uppercase;margin-top:1px}
+.hdr-stats{text-align:right;font-size:11px;opacity:.85;line-height:1.5}
+.hdr-stats b{font-size:13px;font-weight:700}
+.sync-dot{width:8px;height:8px;border-radius:50%;background:#4ade80;display:inline-block;margin-right:4px;animation:pulse 2s infinite}
+.sync-dot.loading{background:#fbbf24;animation:spin 1s linear infinite}
+.sync-dot.error{background:#f87171;animation:none}
+@keyframes pulse{0%,100%{opacity:1}50%{opacity:.4}}
+@keyframes spin{to{transform:rotate(360deg)}}
+
+nav{display:flex;overflow-x:auto;scrollbar-width:none;gap:2px;padding-bottom:2px}
+nav::-webkit-scrollbar{display:none}
+.nav-btn{background:transparent;border:none;color:rgba(255,255,255,.6);padding:.6rem .9rem;font-size:12.5px;font-weight:600;cursor:pointer;white-space:nowrap;border-radius:8px 8px 0 0;transition:.15s;font-family:var(--font);border-bottom:2.5px solid transparent}
+.nav-btn.active{color:white;background:rgba(255,255,255,.12);border-bottom-color:rgba(255,255,255,.8)}
+.nav-btn:hover:not(.active){color:rgba(255,255,255,.88)}
+
+main{flex:1;padding:1.125rem;padding-bottom:2.5rem}
+
+.card{background:var(--card);border-radius:var(--r);border:1px solid var(--border);padding:1rem 1.125rem;margin-bottom:.75rem;box-shadow:var(--shadow)}
+.card-tight{padding:.5rem .875rem}
+.grid2{display:grid;grid-template-columns:1fr 1fr;gap:.625rem;margin-bottom:.75rem}
+.stat{background:var(--card);border:1px solid var(--border);border-radius:var(--r);padding:.875rem 1rem;box-shadow:var(--shadow);position:relative;overflow:hidden}
+.stat::before{content:'';position:absolute;top:0;left:0;right:0;height:3px;background:linear-gradient(90deg,var(--brand),var(--brand-mid))}
+.stat-label{font-size:10.5px;color:var(--muted);text-transform:uppercase;letter-spacing:.6px;margin-bottom:3px;font-weight:600}
+.stat-val{font-size:24px;font-weight:800;color:var(--text);line-height:1.1;font-family:var(--mono)}
+.stat-sub{font-size:11px;color:var(--muted);margin-top:2px}
+
+.sec-hdr{display:flex;align-items:center;justify-content:space-between;margin-bottom:.625rem}
+.sec-title{font-size:10.5px;font-weight:700;color:var(--muted);text-transform:uppercase;letter-spacing:.7px}
+
+.cust-row{display:flex;align-items:center;gap:.75rem;padding:.75rem .375rem;border-bottom:1px solid var(--border);cursor:pointer;border-radius:var(--r-sm);transition:.12s}
+.cust-row:last-child{border-bottom:none}
+.cust-row:active{background:var(--brand-light);transform:scale(.99)}
+@media(hover:hover){.cust-row:hover{background:var(--brand-light)}}
+.cust-name{font-weight:700;font-size:14px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.cust-meta{font-size:12px;color:var(--muted)}
+.cust-pts{text-align:right;flex-shrink:0}
+.pts-val{font-size:17px;font-weight:800;color:var(--brand);font-family:var(--mono)}
+.pts-lbl{font-size:10px;color:var(--muted)}
+
+.av{border-radius:50%;display:flex;align-items:center;justify-content:center;font-weight:800;color:white;flex-shrink:0}
+.tier-chip{display:inline-flex;align-items:center;gap:3px;padding:2px 8px;border-radius:100px;font-size:10.5px;font-weight:700}
+
+.btn{display:inline-flex;align-items:center;justify-content:center;gap:6px;padding:.65rem 1.25rem;border-radius:var(--r-sm);font-size:14px;font-weight:700;cursor:pointer;border:none;font-family:var(--font);transition:.15s}
+.btn:active{transform:scale(.96)}
+.btn:disabled{opacity:.5;cursor:not-allowed;transform:none}
+.btn-primary{background:linear-gradient(135deg,var(--brand),var(--brand2));color:white;box-shadow:0 2px 10px rgba(109,40,217,.3)}
+.btn-outline{background:transparent;color:var(--brand);border:2px solid var(--brand-mid)}
+.btn-outline:hover{background:var(--brand-light)}
+.btn-success{background:linear-gradient(135deg,#059669,#10B981);color:white}
+.btn-danger{background:var(--red);color:white}
+.btn-block{width:100%}
+.btn-sm{padding:.375rem .75rem;font-size:12px;border-radius:var(--r-xs)}
+.btn-row{display:flex;gap:.625rem;margin-bottom:1rem}
+.mt1{margin-top:.5rem}.mt2{margin-top:1rem}.mb1{margin-bottom:.5rem}.mb2{margin-bottom:1rem}
+
+.fg{margin-bottom:.875rem}
+.lbl{display:block;font-size:11px;font-weight:700;color:var(--muted);margin-bottom:.375rem;text-transform:uppercase;letter-spacing:.4px}
+.inp{width:100%;padding:.75rem 1rem;border:2px solid var(--border);border-radius:var(--r-sm);font-size:15px;background:var(--card);color:var(--text);font-family:var(--font);transition:.15s}
+.inp:focus{outline:none;border-color:var(--brand);box-shadow:0 0 0 4px rgba(109,40,217,.1)}
+.inp::placeholder{color:var(--muted)}
+.inp-big{font-size:30px;font-weight:800;text-align:center;font-family:var(--mono)}
+
+.srch-wrap{position:relative;margin-bottom:.75rem}
+.srch-ico{position:absolute;left:12px;top:50%;transform:translateY(-50%);color:var(--muted);pointer-events:none}
+.srch-inp{width:100%;padding:.75rem 1rem .75rem 2.75rem;border:2px solid var(--border);border-radius:10px;font-size:14px;background:var(--card);color:var(--text);font-family:var(--font)}
+.srch-inp:focus{outline:none;border-color:var(--brand);box-shadow:0 0 0 4px rgba(109,40,217,.1)}
+
+.pts-preview{background:linear-gradient(135deg,var(--brand-light),#F5F0FF);border:2px dashed var(--brand-mid);border-radius:var(--r);padding:1.25rem;text-align:center;margin:.75rem 0}
+.pts-big{font-size:48px;font-weight:900;color:var(--brand);line-height:1;font-family:var(--mono)}
+.pts-label{font-size:13px;color:var(--brand);opacity:.75;margin-top:6px;font-weight:600}
+.pts-hint{font-size:11px;color:var(--muted);margin-top:6px}
+
+.overlay{position:fixed;inset:0;background:rgba(0,0,0,.6);z-index:1000;display:flex;align-items:flex-end;justify-content:center;backdrop-filter:blur(6px)}
+.modal{background:var(--card);border-radius:22px 22px 0 0;width:100%;max-width:500px;max-height:92vh;overflow-y:auto;padding:1.5rem;animation:slideUp .25s cubic-bezier(.34,1.3,.64,1)}
+@keyframes slideUp{from{transform:translateY(40px);opacity:0}to{transform:translateY(0);opacity:1}}
+.modal-handle{width:44px;height:4px;background:var(--border);border-radius:100px;margin:-.75rem auto 1.25rem}
+.modal-title{font-size:20px;font-weight:800;margin-bottom:1.125rem;letter-spacing:-.3px}
+
+.tx-row{display:flex;align-items:center;gap:.75rem;padding:.625rem 0;border-bottom:1px solid var(--border)}
+.tx-row:last-child{border-bottom:none}
+.tx-ico{width:36px;height:36px;border-radius:10px;display:flex;align-items:center;justify-content:center;font-size:15px;flex-shrink:0}
+.tx-title{font-size:13px;font-weight:600}
+.tx-date{font-size:11px;color:var(--muted)}
+.tx-pts{font-size:14px;font-weight:800;text-align:right;white-space:nowrap;font-family:var(--mono)}
+
+.prog-bar{height:8px;background:var(--border);border-radius:100px;overflow:hidden;margin:.5rem 0}
+.prog-fill{height:100%;background:linear-gradient(90deg,var(--brand),#A855F7,#EC4899);border-radius:100px;transition:width .7s cubic-bezier(.34,1.4,.64,1)}
+
+.p-stats{display:grid;grid-template-columns:1fr 1fr 1fr;gap:.5rem;margin:1rem 0}
+.p-stat{text-align:center;padding:.75rem .5rem;background:var(--card2);border-radius:var(--r-sm);border:1px solid var(--border)}
+.p-stat-val{font-size:20px;font-weight:800;color:var(--brand);font-family:var(--mono)}
+.p-stat-lbl{font-size:10px;color:var(--muted);text-transform:uppercase;letter-spacing:.4px;margin-top:2px;font-weight:600}
+
+.rank-item{display:flex;align-items:center;gap:.75rem;padding:.75rem .25rem;border-bottom:1px solid var(--border);cursor:pointer;border-radius:var(--r-sm);transition:.12s}
+.rank-item:last-child{border-bottom:none}
+.rank-item:active{background:var(--brand-light)}
+@media(hover:hover){.rank-item:hover{background:var(--brand-light)}}
+.rank-num{width:30px;height:30px;border-radius:50%;display:flex;align-items:center;justify-content:center;font-size:12px;font-weight:800;background:var(--card2);color:var(--muted);flex-shrink:0;font-family:var(--mono)}
+
+.rwd-card{background:var(--card);border:1.5px solid var(--border);border-radius:var(--r);padding:1rem;margin-bottom:.625rem;display:flex;align-items:center;gap:.875rem;box-shadow:var(--shadow)}
+.rwd-ico{width:48px;height:48px;border-radius:12px;background:linear-gradient(135deg,var(--brand-light),#F0EBFF);display:flex;align-items:center;justify-content:center;font-size:22px;flex-shrink:0;border:1px solid var(--border)}
+.rwd-name{font-weight:700;font-size:14px}
+.rwd-desc{font-size:12px;color:var(--muted)}
+.rwd-cost{font-size:14px;font-weight:800;color:var(--brand);white-space:nowrap;font-family:var(--mono)}
+
+.notif{position:fixed;top:1rem;left:50%;transform:translateX(-50%);background:linear-gradient(135deg,var(--brand-dark),var(--brand2));color:white;padding:.75rem 1.5rem;border-radius:100px;font-size:13.5px;font-weight:600;z-index:9999;white-space:nowrap;max-width:92vw;text-align:center;animation:notifIn .3s cubic-bezier(.34,1.5,.64,1);pointer-events:none;box-shadow:0 4px 20px rgba(109,40,217,.4)}
+@keyframes notifIn{from{transform:translateX(-50%) translateY(-20px);opacity:0}to{transform:translateX(-50%) translateY(0);opacity:1}}
+
+.empty{text-align:center;padding:2.5rem 1rem;color:var(--muted)}
+.empty-ico{font-size:48px;margin-bottom:.75rem}
+
+.podium{display:flex;align-items:flex-end;justify-content:center;gap:.625rem;margin:1rem 0 .5rem;padding:.5rem 0}
+.pod-item{display:flex;flex-direction:column;align-items:center;gap:.5rem}
+.pod-name{font-size:12px;font-weight:700;text-align:center;max-width:82px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.pod-pts{font-size:11px;color:var(--muted);text-align:center;font-family:var(--mono)}
+.pod-block{border-radius:10px 10px 0 0;display:flex;align-items:center;justify-content:center;color:white;font-size:22px;width:82px}
+
+.info-box{background:var(--brand-light);border-radius:var(--r-sm);padding:.75rem 1rem;font-size:13px;color:var(--brand);font-weight:600;margin-bottom:1rem;border:1px solid var(--border)}
+.cfg-row{display:flex;align-items:center;justify-content:space-between;padding:.875rem 0;border-bottom:1px solid var(--border)}
+.cfg-row:last-child{border-bottom:none}
+.cfg-label{font-size:14px;font-weight:600}
+.cfg-sub{font-size:11.5px;color:var(--muted);margin-top:2px}
+.stepper{display:flex;align-items:center;gap:.5rem}
+.step-btn{width:36px;height:36px;border-radius:50%;border:2px solid var(--brand-mid);background:var(--card);color:var(--brand);font-size:20px;font-weight:700;cursor:pointer;display:flex;align-items:center;justify-content:center;transition:.15s;font-family:var(--font)}
+.step-btn:active{transform:scale(.9);background:var(--brand-light)}
+.step-val{font-size:18px;font-weight:800;color:var(--brand);min-width:3rem;text-align:center;font-family:var(--mono)}
+
+.skeleton{background:linear-gradient(90deg,var(--border) 25%,var(--card2) 50%,var(--border) 75%);background-size:200% 100%;animation:shimmer 1.4s infinite;border-radius:8px}
+@keyframes shimmer{0%{background-position:200% 0}100%{background-position:-200% 0}}
+
+.flex{display:flex}.ic{align-items:center}.jb{justify-content:space-between}.gap1{gap:.5rem}.gap2{gap:.75rem}
+.text-muted{color:var(--muted)}.text-sm{font-size:13px}.text-xs{font-size:11px}.fw7{font-weight:700}.fw8{font-weight:800}
+::-webkit-scrollbar{width:4px}::-webkit-scrollbar-track{background:transparent}::-webkit-scrollbar-thumb{background:var(--border);border-radius:100px}
+</style>
+</head>
+<body>
+<div id="app">
+  <header>
+    <div class="hdr-top">
+      <div class="brand">
+        <div class="brand-logo">🍇</div>
+        <div class="brand-text" id="loja-nome">AçaíPoints<small>Painel do Dono</small></div>
+      </div>
+      <div class="hdr-stats">
+        <div><span class="sync-dot" id="sync-dot"></span><span id="sync-label">conectando...</span></div>
+        <div id="hdr-info"></div>
+      </div>
+    </div>
+    <nav>
+      <button class="nav-btn active" data-view="dashboard">Dashboard</button>
+      <button class="nav-btn" data-view="clientes">Clientes</button>
+      <button class="nav-btn" data-view="compra">+ Compra</button>
+      <button class="nav-btn" data-view="ranking">Ranking</button>
+      <button class="nav-btn" data-view="premios">Prêmios</button>
+      <button class="nav-btn" data-view="config">⚙️ Config</button>
+    </nav>
+  </header>
+  <main id="main"><div style="padding:2rem;text-align:center;color:var(--muted)"><div style="font-size:32px;margin-bottom:.5rem">🍇</div>Carregando...</div></main>
+  <div id="overlay" class="overlay" style="display:none" onclick="overlayClick(event)">
+    <div class="modal"><div class="modal-handle"></div><div id="modal-body"></div></div>
+  </div>
+  <div id="notif" class="notif" style="display:none"></div>
+</div>
+
+<script>
+// ── SUPABASE ───────────────────────────────────────────────
+const { createClient } = supabase;
+const sb = createClient(
+  'https://hnculphposmgfvaeliiw.supabase.co',
+  'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImhuY3VscGhwb3NtZ2Z2YWVsaWl3Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzQ4MTE4MDIsImV4cCI6MjA5MDM4NzgwMn0.mlkDEf0HI6XQm2mX7Ee3CWcR8WxevJiy3l2xBdvTaNM'
+);
+
+// ── CONSTANTS ──────────────────────────────────────────────
+const TIERS=[
+  {nome:'Iniciante',min:0,max:49,icon:'⭐',bg:'#F1F5F9',color:'#475569'},
+  {nome:'Bronze',min:50,max:149,icon:'🥉',bg:'#FEF3C7',color:'#92400E'},
+  {nome:'Prata',min:150,max:349,icon:'🥈',bg:'#F1F5F9',color:'#334155'},
+  {nome:'Ouro',min:350,max:699,icon:'🥇',bg:'#FEF9C3',color:'#713F12'},
+  {nome:'Diamante',min:700,max:Infinity,icon:'💎',bg:'#EDE9FE',color:'#5B21B6'},
+];
+const TIER_DARK={Iniciante:'#E2E8F0',Bronze:'#FEF08A',Prata:'#CBD5E1',Ouro:'#FDE047',Diamante:'#C4B5FD'};
+const AV_COLORS=['#6D28D9','#059669','#DC2626','#D97706','#0891B2','#BE185D','#065F46','#1D4ED8','#9333EA','#C2410C'];
+
+// ── STATE ──────────────────────────────────────────────────
+let S={
+  view:'dashboard',customers:[],rewards:[],config:{reais_por_ponto:10,nome_loja:'AçaíPoints'},
+  transactions:{}, // cache: customer_id -> array
+  search:'',cSearch:'',cCliente:null,selCust:null,loading:false,
+};
+
+// ── SYNC STATUS ────────────────────────────────────────────
+function setSyncStatus(status){
+  const dot=document.getElementById('sync-dot');
+  const lbl=document.getElementById('sync-label');
+  if(!dot)return;
+  dot.className='sync-dot'+(status==='loading'?' loading':status==='error'?' error':'');
+  lbl.textContent=status==='ok'?'online':status==='loading'?'sincronizando...':'erro de conexão';
+}
+
+// ── DATA LOADING ───────────────────────────────────────────
+async function loadAll(){
+  setSyncStatus('loading');
+  try{
+    const[{data:custs},{data:rwds},{data:cfg}]=await Promise.all([
+      sb.from('customers').select('*').order('created_at',{ascending:false}),
+      sb.from('rewards').select('*').eq('ativo',true).order('pontos'),
+      sb.from('config').select('*').eq('id',1).single(),
+    ]);
+    S.customers=custs||[];
+    S.rewards=rwds||[];
+    if(cfg)S.config=cfg;
+    setSyncStatus('ok');
+    const el=document.getElementById('loja-nome');
+    if(el)el.innerHTML=`${S.config.nome_loja||'AçaíPoints'}<small>Painel do Dono</small>`;
+  }catch(e){setSyncStatus('error');toast('⚠️ Erro ao carregar dados');}
+  renderAll();
+}
+
+async function loadCustomerTx(cid){
+  if(S.transactions[cid])return S.transactions[cid];
+  const{data}=await sb.from('transactions').select('*').eq('customer_id',cid).order('created_at',{ascending:false}).limit(30);
+  S.transactions[cid]=data||[];
+  return S.transactions[cid];
+}
+
+// ── BUSINESS LOGIC ─────────────────────────────────────────
+function getTier(total){return TIERS.find(t=>total>=t.min&&total<=t.max)||TIERS[0];}
+function avColor(id){let h=0;for(let i=0;i<id.length;i++)h=(h*31+id.charCodeAt(i))&0xffff;return AV_COLORS[h%AV_COLORS.length];}
+function initials(n){const p=n.trim().split(' ');return p.length>=2?(p[0][0]+p[1][0]).toUpperCase():n.slice(0,2).toUpperCase();}
+function calcPts(v){return Math.floor(v/(S.config.reais_por_ponto||10));}
+
+async function addCustomer(nome,tel){
+  const{data,error}=await sb.from('customers').insert({nome:nome.trim(),tel:tel.trim()}).select().single();
+  if(error)throw error;
+  S.customers.unshift(data);
+  return data;
+}
+
+async function registerPurchase(cid,val){
+  const pts=calcPts(val);
+  const c=S.customers.find(x=>x.id===cid);if(!c)return 0;
+  const{error:e1}=await sb.from('customers').update({pontos:c.pontos+pts,total:c.total+pts}).eq('id',cid);
+  if(e1)throw e1;
+  const{error:e2}=await sb.from('transactions').insert({customer_id:cid,tipo:'compra',pts,val,descricao:`Compra R$ ${val.toFixed(2)}`});
+  if(e2)throw e2;
+  c.pontos+=pts;c.total+=pts;
+  delete S.transactions[cid];
+  return pts;
+}
+
+async function redeemReward(cid,rid){
+  const c=S.customers.find(x=>x.id===cid);const r=S.rewards.find(x=>x.id===rid);
+  if(!c||!r||c.pontos<r.pontos)return false;
+  const{error:e1}=await sb.from('customers').update({pontos:c.pontos-r.pontos,resgatados:c.resgatados+r.pontos}).eq('id',cid);
+  if(e1)throw e1;
+  const{error:e2}=await sb.from('transactions').insert({customer_id:cid,tipo:'resgate',pts:-r.pontos,descricao:r.nome});
+  if(e2)throw e2;
+  c.pontos-=r.pontos;c.resgatados+=r.pontos;
+  delete S.transactions[cid];
+  return true;
+}
+
+async function deleteCustomer(cid){
+  const{error}=await sb.from('customers').delete().eq('id',cid);
+  if(error)throw error;
+  S.customers=S.customers.filter(x=>x.id!==cid);
+  delete S.transactions[cid];
+}
+
+async function updateCustomer(cid,fields){
+  const upd={};
+  if(fields.nome!==undefined)upd.nome=fields.nome.trim();
+  if(fields.tel!==undefined)upd.tel=fields.tel.trim();
+  const c=S.customers.find(x=>x.id===cid);
+  if(fields.pontos!==undefined&&c){
+    const diff=fields.pontos-c.pontos;
+    upd.pontos=fields.pontos;
+    if(diff!==0)await sb.from('transactions').insert({customer_id:cid,tipo:'ajuste',pts:diff,descricao:'Ajuste manual de pontos'});
+    delete S.transactions[cid];
+  }
+  const{error}=await sb.from('customers').update(upd).eq('id',cid);
+  if(error)throw error;
+  Object.assign(c,upd);
+}
+
+async function addReward(data){
+  const{data:r,error}=await sb.from('rewards').insert(data).select().single();
+  if(error)throw error;
+  S.rewards.push(r);S.rewards.sort((a,b)=>a.pontos-b.pontos);
+  return r;
+}
+async function updateReward(rid,fields){
+  const{error}=await sb.from('rewards').update(fields).eq('id',rid);
+  if(error)throw error;
+  const r=S.rewards.find(x=>x.id===rid);if(r)Object.assign(r,fields);
+}
+async function removeReward(rid){
+  const{error}=await sb.from('rewards').update({ativo:false}).eq('id',rid);
+  if(error)throw error;
+  S.rewards=S.rewards.filter(x=>x.id!==rid);
+}
+async function saveConfig(cfg){
+  const{error}=await sb.from('config').update(cfg).eq('id',1);
+  if(error)throw error;
+  Object.assign(S.config,cfg);
+}
+
+function getStats(){
+  const hoje=new Date().toDateString();
+  // count today from cache
+  let hoje_count=0;
+  Object.values(S.transactions).forEach(txs=>{
+    hoje_count+=txs.filter(h=>h.tipo==='compra'&&new Date(h.created_at).toDateString()===hoje).length;
+  });
+  return{
+    clientes:S.customers.length,
+    totalPts:S.customers.reduce((s,c)=>s+c.total,0),
+    resgatados:S.customers.reduce((s,c)=>s+c.resgatados,0),
+    faturamento:S.customers.reduce((s,c)=>s+(c.total*(S.config.reais_por_ponto||10)),0),
+  };
+}
+function getRanking(){return[...S.customers].sort((a,b)=>b.total-a.total);}
+
+// ── HELPERS ────────────────────────────────────────────────
+function fmtDate(iso){
+  const d=new Date(iso),t=new Date();const yd=new Date(t);yd.setDate(t.getDate()-1);
+  if(d.toDateString()===t.toDateString())return'Hoje '+d.toLocaleTimeString('pt-BR',{hour:'2-digit',minute:'2-digit'});
+  if(d.toDateString()===yd.toDateString())return'Ontem '+d.toLocaleTimeString('pt-BR',{hour:'2-digit',minute:'2-digit'});
+  return d.toLocaleDateString('pt-BR',{day:'2-digit',month:'short',year:'2-digit'});
+}
+function fmtR(n){return'R$ '+n.toLocaleString('pt-BR',{minimumFractionDigits:2,maximumFractionDigits:2});}
+function escHtml(s){return String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');}
+
+let notifTimer;
+function toast(msg,ms=2800){const el=document.getElementById('notif');el.textContent=msg;el.style.display='block';clearTimeout(notifTimer);notifTimer=setTimeout(()=>el.style.display='none',ms);}
+function isDark(){return window.matchMedia('(prefers-color-scheme:dark)').matches;}
+function tierBadge(total){const t=getTier(total);const bg=isDark()?TIER_DARK[t.nome]+'33':t.bg;return`<span class="tier-chip" style="background:${bg};color:${t.color}">${t.icon} ${t.nome}</span>`;}
+function avDiv(nome,id,size=40,fs=14){return`<div class="av" style="width:${size}px;height:${size}px;font-size:${fs}px;background:${avColor(id)}">${initials(nome)}</div>`;}
+function custRow(c,mini=false){
+  return`<div class="cust-row" onclick="openModal('${c.id}')">
+    ${avDiv(c.nome,c.id)}
+    <div style="flex:1;min-width:0"><div class="cust-name">${escHtml(c.nome)}</div>
+    <div class="cust-meta">${mini?tierBadge(c.total):(c.tel||'Sem telefone')}</div></div>
+    <div class="cust-pts"><div class="pts-val">${c.pontos}</div><div class="pts-lbl">pontos</div></div>
+  </div>`;
+}
+
+function nav(v){
+  S.view=v;S.search='';S.cSearch='';S.cCliente=null;
+  document.querySelectorAll('.nav-btn').forEach(b=>b.classList.toggle('active',b.dataset.view===v));
+  renderAll();
+}
+function closeModal(){document.getElementById('overlay').style.display='none';S.selCust=null;}
+function overlayClick(e){if(e.target===document.getElementById('overlay'))closeModal();}
+
+// ── VIEWS ──────────────────────────────────────────────────
+function renderAll(){
+  const m=document.getElementById('main');
+  const fns={dashboard:renderDashboard,clientes:renderClientes,compra:renderCompra,ranking:renderRanking,premios:renderPremios,config:renderConfig};
+  m.innerHTML=(fns[S.view]||renderDashboard)();
+  const s=getStats();
+  const hdr=document.getElementById('hdr-info');
+  if(hdr)hdr.innerHTML=`<b>${s.clientes}</b> clientes · <b>${s.totalPts.toLocaleString()}</b> pts`;
+}
+
+function renderDashboard(){
+  const s=getStats();const top3=getRanking().slice(0,3);
+  return`
+  <div class="grid2">
+    <div class="stat"><div class="stat-label">Clientes</div><div class="stat-val">${s.clientes}</div><div class="stat-sub">cadastrados</div></div>
+    <div class="stat"><div class="stat-label">Pts Distribuídos</div><div class="stat-val">${s.totalPts.toLocaleString()}</div><div class="stat-sub">no total</div></div>
+    <div class="stat"><div class="stat-label">Faturamento Est.</div><div class="stat-val" style="font-size:17px">${fmtR(s.faturamento)}</div><div class="stat-sub">acumulado</div></div>
+    <div class="stat"><div class="stat-label">Pts Resgatados</div><div class="stat-val">${s.resgatados.toLocaleString()}</div><div class="stat-sub">no total</div></div>
+  </div>
+  ${top3.length?`<div class="card"><div class="sec-hdr"><span class="sec-title">🏆 Top Clientes</span><button class="btn btn-sm btn-outline" onclick="nav('ranking')">Ver ranking</button></div>${top3.map(c=>custRow(c,true)).join('')}</div>`:''}
+  <button class="btn btn-primary btn-block mt1" onclick="nav('compra')" style="padding:1rem;font-size:15px">+ Registrar Nova Compra</button>
+  <button class="btn btn-outline btn-block mt1" onclick="showAddCust()">👤 Cadastrar Cliente</button>
+  `;
+}
+
+function renderClientes(){
+  const q=S.search.toLowerCase();
+  const list=S.customers.filter(c=>c.nome.toLowerCase().includes(q)||(c.tel||'').includes(q));
+  return`
+  <div class="srch-wrap"><span class="srch-ico">🔍</span>
+    <input class="srch-inp" placeholder="Buscar nome ou telefone..." value="${escHtml(S.search)}" oninput="S.search=this.value;renderAll()">
+  </div>
+  <div class="flex ic jb mb1">
+    <span class="text-sm text-muted">${list.length} cliente${list.length!==1?'s':''}</span>
+    <button class="btn btn-primary btn-sm" onclick="showAddCust()">+ Novo</button>
+  </div>
+  ${list.length===0?`<div class="empty"><div class="empty-ico">👥</div><p style="font-size:13px">${S.search?'Nenhum resultado':'Nenhum cliente cadastrado'}</p>${!S.search?`<button class="btn btn-primary mt2" onclick="showAddCust()">Cadastrar Primeiro Cliente</button>`:''}</div>`:
+  `<div class="card card-tight">${list.map(c=>custRow(c)).join('')}</div>`}
+  `;
+}
+
+function renderCompra(){
+  if(S.cCliente){
+    const c=S.customers.find(x=>x.id===S.cCliente);if(!c)return'';
+    return`
+    <div class="card flex ic gap2 mb2">
+      ${avDiv(c.nome,c.id,44,16)}
+      <div style="flex:1"><div class="fw8">${escHtml(c.nome)}</div>
+        <div class="text-sm text-muted">${c.pontos} pts disponíveis · ${tierBadge(c.total)}</div></div>
+      <button onclick="S.cCliente=null;renderAll()" style="background:none;border:none;font-size:22px;cursor:pointer;color:var(--muted)">×</button>
+    </div>
+    <div class="fg"><label class="lbl">Valor da Compra (R$)</label>
+      <input class="inp inp-big" id="v-inp" type="number" min="0" step="0.01" placeholder="0,00" oninput="updPrev(this.value)"></div>
+    <div class="pts-preview">
+      <div class="pts-big" id="pts-num">0</div>
+      <div class="pts-label">pontos a ganhar</div>
+      <div class="pts-hint">Regra: a cada R$ ${S.config.reais_por_ponto||10},00 = 1 ponto</div>
+    </div>
+    <button class="btn btn-success btn-block" id="confirm-btn" style="padding:1rem;font-size:16px" onclick="doCompra('${c.id}')">✅ Confirmar Compra</button>
+    `;
+  }
+  const q=S.cSearch.toLowerCase();
+  const found=q.length>1?S.customers.filter(c=>c.nome.toLowerCase().includes(q)||(c.tel||'').includes(q)):[];
+  const recentes=S.customers.slice(0,6);
+  return`
+  <h2 style="font-size:18px;font-weight:800;margin-bottom:1rem">Registrar Compra</h2>
+  <div class="fg"><label class="lbl">Buscar Cliente</label>
+    <div class="srch-wrap" style="margin:0"><span class="srch-ico">🔍</span>
+      <input class="srch-inp" placeholder="Nome ou telefone..." value="${escHtml(S.cSearch)}" oninput="S.cSearch=this.value;renderAll()" autofocus>
+    </div>
+  </div>
+  ${q.length>1?
+    (found.length===0?`<div style="text-align:center;padding:1rem;color:var(--muted)">Cliente não encontrado<br><button class="btn btn-outline btn-sm mt2" onclick="showAddCust()">Cadastrar novo</button></div>`:
+    `<div class="card card-tight">${found.map(c=>`<div class="cust-row" onclick="S.cCliente='${c.id}';renderAll()">${avDiv(c.nome,c.id)}<div style="flex:1;min-width:0"><div class="cust-name">${escHtml(c.nome)}</div><div class="cust-meta">${c.tel||'Sem tel'} · ${c.pontos} pts</div></div><span style="color:var(--brand);font-weight:700">→</span></div>`).join('')}</div>`):
+    (S.customers.length===0?`<div class="empty"><div class="empty-ico">👥</div><p style="font-size:13px">Cadastre clientes primeiro</p><button class="btn btn-primary mt2" onclick="showAddCust()">Cadastrar</button></div>`:
+    `<div class="sec-hdr"><span class="sec-title">Clientes recentes</span></div>
+    <div class="card card-tight">${recentes.map(c=>`<div class="cust-row" onclick="S.cCliente='${c.id}';renderAll()">${avDiv(c.nome,c.id)}<div style="flex:1;min-width:0"><div class="cust-name">${escHtml(c.nome)}</div><div class="cust-meta">${c.pontos} pontos</div></div><span style="color:var(--brand);font-weight:700">→</span></div>`).join('')}</div>`)}
+  `;
+}
+
+function renderRanking(){
+  const rank=getRanking();
+  if(!rank.length)return`<div class="empty"><div class="empty-ico">🏆</div><p style="font-size:13px">Cadastre clientes para ver o ranking</p></div>`;
+  const[p1,p2,p3]=rank;
+  const podItem=(c,pos)=>{
+    if(!c)return`<div style="width:82px"></div>`;
+    const cols={1:'var(--brand)',2:'#64748B',3:'#B45309'};
+    const hs={1:76,2:56,3:42};const avS={1:58,2:46,3:40};const avFs={1:20,2:15,3:13};
+    const medals={1:'🥇',2:'🥈',3:'🥉'};
+    return`<div class="pod-item" style="order:${pos===2?0:pos===1?1:2}">
+      <div class="pod-name">${escHtml(c.nome.split(' ')[0])}</div>
+      ${avDiv(c.nome,c.id,avS[pos],avFs[pos])}
+      <div class="pod-pts">${c.total} pts</div>
+      <div class="pod-block" style="height:${hs[pos]}px;background:${cols[pos]}">${medals[pos]}</div>
+    </div>`;
+  };
+  return`
+  <div class="card"><div class="podium">${podItem(p2,2)}${podItem(p1,1)}${podItem(p3,3)}</div></div>
+  <div class="sec-hdr mt1"><span class="sec-title">Classificação Completa</span></div>
+  <div class="card card-tight">${rank.map((c,i)=>{
+    const rcs=['var(--brand)','#64748B','#B45309'];
+    return`<div class="rank-item" onclick="openModal('${c.id}')">
+      <div class="rank-num" style="${i<3?`background:${rcs[i]};color:white`:''}">${i+1}</div>
+      ${avDiv(c.nome,c.id,36,13)}
+      <div style="flex:1;min-width:0"><div style="font-weight:700;font-size:14px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${escHtml(c.nome)}</div><div style="margin-top:2px">${tierBadge(c.total)}</div></div>
+      <div style="text-align:right"><div style="font-size:16px;font-weight:800;color:var(--brand);font-family:var(--mono)">${c.total}</div><div class="text-xs text-muted">pts totais</div></div>
+    </div>`;
+  }).join('')}</div>`;
+}
+
+function renderPremios(){
+  return`
+  <div class="flex ic jb mb2">
+    <h2 style="font-size:18px;font-weight:800">Prêmios</h2>
+    <button class="btn btn-primary btn-sm" onclick="showAddPremio()">+ Adicionar</button>
+  </div>
+  <div class="info-box">💡 R$ ${S.config.reais_por_ponto||10},00 = 1 ponto · Configure em ⚙️ Config</div>
+  ${S.rewards.map(r=>`
+  <div class="rwd-card">
+    <div class="rwd-ico">${r.emoji}</div>
+    <div style="flex:1;min-width:0"><div class="rwd-name">${escHtml(r.nome)}</div><div class="rwd-desc">${escHtml(r.descricao||'')}</div></div>
+    <div style="text-align:right">
+      <div class="rwd-cost">${r.pontos} pts</div>
+      <div style="display:flex;gap:4px;margin-top:4px">
+        <button onclick="showEditPremio(${r.id})" style="background:var(--brand-light);border:none;font-size:11px;color:var(--brand);cursor:pointer;padding:2px 8px;border-radius:4px;font-weight:700;font-family:var(--font)">✏️</button>
+        <button onclick="doRemovePremio(${r.id})" style="background:var(--red-light);border:none;font-size:11px;color:var(--red);cursor:pointer;padding:2px 8px;border-radius:4px;font-weight:700;font-family:var(--font)">✕</button>
+      </div>
+    </div>
+  </div>`).join('')}
+  <div class="card mt2">
+    <div style="font-size:13px;font-weight:700;margin-bottom:.75rem">📊 Níveis de Fidelidade</div>
+    ${TIERS.map(t=>`<div style="display:flex;align-items:center;justify-content:space-between;padding:.5rem 0;border-bottom:1px solid var(--border)">
+      <span style="font-weight:600">${t.icon} ${t.nome}</span>
+      <span class="text-sm text-muted">${t.max===Infinity?`${t.min}+ pts`:`${t.min}–${t.max} pts`}</span>
+    </div>`).join('')}
+  </div>`;
+}
+
+function renderConfig(){
+  const r=S.config.reais_por_ponto||10;
+  return`
+  <h2 style="font-size:18px;font-weight:800;margin-bottom:1.25rem">⚙️ Configurações</h2>
+  <div class="card">
+    <div style="font-size:13px;font-weight:700;margin-bottom:.5rem">🏪 Nome da Loja</div>
+    <div class="fg" style="margin-bottom:.5rem">
+      <input class="inp" id="cfg-nome" value="${escHtml(S.config.nome_loja||'')}" placeholder="Ex: Açaí do João">
+    </div>
+    <button class="btn btn-primary btn-sm" onclick="doSaveNome()">Salvar nome</button>
+  </div>
+  <div class="card">
+    <div style="font-size:13px;font-weight:700;margin-bottom:.25rem">💰 Regra de Pontos</div>
+    <div class="text-sm text-muted mb2">Quantos reais = 1 ponto?</div>
+    <div class="cfg-row" style="padding-top:0">
+      <div><div class="cfg-label">Reais por ponto</div><div class="cfg-sub"><b>R$ ${r},00 = 1 ponto</b></div></div>
+      <div class="stepper">
+        <button class="step-btn" onclick="changeReais(-5)" ${r<=5?'disabled':''}>−</button>
+        <div class="step-val" id="step-val">R$${r}</div>
+        <button class="step-btn" onclick="changeReais(5)">+</button>
+      </div>
+    </div>
+    <div class="info-box" style="margin-bottom:0">📊 R$ 50 = <b>${Math.floor(50/r)} pts</b> · R$ 100 = <b>${Math.floor(100/r)} pts</b></div>
+  </div>
+  <div class="card mt1">
+    <div style="font-size:13px;font-weight:700;margin-bottom:.75rem">💡 Valores rápidos</div>
+    <div style="display:flex;gap:.5rem;flex-wrap:wrap">
+      ${[5,10,15,20,25,50].map(v=>`<button onclick="setReais(${v})" class="btn btn-sm ${r===v?'btn-primary':'btn-outline'}">${v===r?'✓ ':''} R$${v}</button>`).join('')}
+    </div>
+  </div>`;
+}
+
+// ── MODALS ─────────────────────────────────────────────────
+async function openModal(cid){
+  S.selCust=cid;
+  document.getElementById('modal-body').innerHTML=`<div style="text-align:center;padding:2rem;color:var(--muted)">Carregando...</div>`;
+  document.getElementById('overlay').style.display='flex';
+  const txs=await loadCustomerTx(cid);
+  renderCustModal(txs);
+}
+
+function renderCustModal(txs){
+  const c=S.customers.find(x=>x.id===S.selCust);if(!c)return;
+  const tier=getTier(c.total);const next=TIERS.find(t=>t.min>c.total);
+  const prog=next?Math.min(100,Math.round(((c.total-tier.min)/(next.min-tier.min))*100)):100;
+  document.getElementById('modal-body').innerHTML=`
+    <div class="flex ic gap2" style="margin-bottom:1rem">
+      ${avDiv(c.nome,c.id,54,19)}
+      <div style="flex:1">
+        <div style="font-size:19px;font-weight:800">${escHtml(c.nome)}</div>
+        <div class="text-sm text-muted">${c.tel||'Sem telefone'} · ${new Date(c.created_at).toLocaleDateString('pt-BR')}</div>
+        <div style="margin-top:4px">${tierBadge(c.total)}</div>
+      </div>
+    </div>
+    <div class="p-stats">
+      <div class="p-stat"><div class="p-stat-val">${c.pontos}</div><div class="p-stat-lbl">Disponíveis</div></div>
+      <div class="p-stat"><div class="p-stat-val">${c.total}</div><div class="p-stat-lbl">Acumulados</div></div>
+      <div class="p-stat"><div class="p-stat-val">${c.resgatados}</div><div class="p-stat-lbl">Resgatados</div></div>
+    </div>
+    ${next?`<div style="margin-bottom:1rem">
+      <div class="flex ic jb text-xs text-muted mb1"><span>${tier.icon} ${tier.nome}</span><span>Próximo: ${next.icon} ${next.nome} (faltam ${next.min-c.total} pts)</span></div>
+      <div class="prog-bar"><div class="prog-fill" style="width:${prog}%"></div></div>
+    </div>`:`<div class="info-box" style="text-align:center;margin-bottom:1rem">💎 Nível Máximo — Diamante!</div>`}
+    <div class="btn-row">
+      <button class="btn btn-primary" style="flex:1" onclick="fromModal('${c.id}','compra')">+ Compra</button>
+      <button class="btn btn-outline" style="flex:1" onclick="showResgate('${c.id}')">🎁 Resgatar</button>
+    </div>
+    <button class="btn btn-outline btn-block mb1" style="border-color:var(--amber-light);color:var(--amber)" onclick="showEditCust('${c.id}')">✏️ Editar Cliente</button>
+    <div class="sec-hdr"><span class="sec-title">Histórico</span></div>
+    ${txs.length===0?`<div class="text-muted text-sm" style="text-align:center;padding:1rem">Sem transações ainda</div>`:
+    txs.map(h=>`<div class="tx-row">
+      <div class="tx-ico" style="background:${h.tipo==='compra'?'var(--green-light)':h.tipo==='ajuste'?'var(--amber-light)':'var(--brand-light)'}">${h.tipo==='compra'?'💰':h.tipo==='ajuste'?'✏️':'🎁'}</div>
+      <div style="flex:1"><div class="tx-title">${escHtml(h.descricao||'')}</div><div class="tx-date">${fmtDate(h.created_at)}</div></div>
+      <div class="tx-pts" style="color:${h.pts>0?'var(--green)':'var(--red)'}">${h.pts>0?'+':''}${h.pts} pts</div>
+    </div>`).join('')}
+    <button class="btn btn-sm" style="color:var(--red);background:var(--red-light);border:none;width:100%;margin-top:1.5rem;padding:.625rem" onclick="confirmDel('${c.id}','${escHtml(c.nome)}')">Excluir Cliente</button>
+  `;
+}
+
+function showEditCust(cid){
+  const c=S.customers.find(x=>x.id===cid);if(!c)return;
+  document.getElementById('modal-body').innerHTML=`
+    <div class="modal-title">✏️ Editar Cliente</div>
+    <div class="fg"><label class="lbl">Nome *</label><input class="inp" id="ec-nome" value="${escHtml(c.nome)}"></div>
+    <div class="fg"><label class="lbl">Telefone</label><input class="inp" id="ec-tel" value="${escHtml(c.tel||'')}" type="tel"></div>
+    <div class="fg"><label class="lbl">Pontos disponíveis <span style="color:var(--amber);font-size:10px">(ajuste manual)</span></label>
+      <input class="inp" id="ec-pts" type="number" min="0" value="${c.pontos}" style="font-family:var(--mono);font-weight:700;font-size:18px"></div>
+    <button class="btn btn-primary btn-block" id="save-cust-btn" onclick="doEditCust('${c.id}')">💾 Salvar</button>
+    <button class="btn btn-outline btn-block mt1" onclick="openModal('${c.id}')">← Voltar</button>
+  `;
+}
+
+function showAddCust(){
+  document.getElementById('modal-body').innerHTML=`
+    <div class="modal-title">👤 Novo Cliente</div>
+    <div class="fg"><label class="lbl">Nome *</label><input class="inp" id="nc-nome" placeholder="Nome completo" autocomplete="off"></div>
+    <div class="fg"><label class="lbl">Telefone</label><input class="inp" id="nc-tel" placeholder="(00) 00000-0000" type="tel"></div>
+    <button class="btn btn-primary btn-block" id="add-cust-btn" onclick="doCadastro()">Cadastrar Cliente</button>
+    <button class="btn btn-outline btn-block mt1" onclick="closeModal()">Cancelar</button>
+  `;
+  document.getElementById('overlay').style.display='flex';
+  setTimeout(()=>document.getElementById('nc-nome')?.focus(),100);
+}
+
+function showResgate(cid){
+  const c=S.customers.find(x=>x.id===cid);if(!c)return;
+  const avail=S.rewards.filter(r=>r.pontos<=c.pontos);
+  const unavail=S.rewards.filter(r=>r.pontos>c.pontos);
+  document.getElementById('modal-body').innerHTML=`
+    <div class="modal-title">🎁 Resgatar Prêmio</div>
+    <div class="info-box">${escHtml(c.nome)} · <b>${c.pontos} pontos</b> disponíveis</div>
+    ${avail.length===0?`<div class="empty"><div class="empty-ico">😔</div><p style="font-size:13px">Pontos insuficientes para qualquer prêmio.</p></div>`:
+    avail.map(r=>`<div class="rwd-card" style="cursor:pointer" onclick="doResgate('${cid}',${r.id})">
+      <div class="rwd-ico">${r.emoji}</div>
+      <div style="flex:1"><div class="rwd-name">${escHtml(r.nome)}</div><div class="rwd-desc">${escHtml(r.descricao||'')}</div></div>
+      <button class="btn btn-primary btn-sm">${r.pontos} pts</button>
+    </div>`).join('')}
+    ${unavail.length?`<div class="sec-title" style="margin:1rem 0 .5rem">Pontos insuficientes:</div>
+    ${unavail.map(r=>`<div class="rwd-card" style="opacity:.4">
+      <div class="rwd-ico">${r.emoji}</div>
+      <div style="flex:1"><div class="rwd-name">${escHtml(r.nome)}</div><div class="rwd-desc">Faltam ${r.pontos-c.pontos} pts</div></div>
+      <div class="rwd-cost">${r.pontos} pts</div>
+    </div>`).join('')}`:''}
+    <button class="btn btn-outline btn-block mt2" onclick="openModal('${cid}')">← Voltar</button>
+  `;
+}
+
+function showAddPremio(){
+  document.getElementById('modal-body').innerHTML=`
+    <div class="modal-title">🎁 Novo Prêmio</div>
+    <div style="display:grid;grid-template-columns:80px 1fr;gap:.5rem;margin-bottom:.875rem">
+      <div class="fg" style="margin:0"><label class="lbl">Emoji</label><input class="inp" id="rp-em" placeholder="🎁" maxlength="4" style="font-size:24px;text-align:center"></div>
+      <div class="fg" style="margin:0"><label class="lbl">Nome *</label><input class="inp" id="rp-nome" placeholder="Ex: Açaí P Grátis"></div>
+    </div>
+    <div class="fg"><label class="lbl">Descrição</label><input class="inp" id="rp-desc" placeholder="Ex: Copo 300ml"></div>
+    <div class="fg"><label class="lbl">Custo em Pontos *</label><input class="inp" id="rp-pts" type="number" placeholder="50" min="1" style="font-family:var(--mono);font-weight:700;font-size:18px"></div>
+    <button class="btn btn-primary btn-block" id="add-rwd-btn" onclick="doAddPremio()">Adicionar Prêmio</button>
+    <button class="btn btn-outline btn-block mt1" onclick="closeModal()">Cancelar</button>
+  `;
+  document.getElementById('overlay').style.display='flex';
+}
+
+function showEditPremio(rid){
+  const r=S.rewards.find(x=>x.id===rid);if(!r)return;
+  document.getElementById('modal-body').innerHTML=`
+    <div class="modal-title">✏️ Editar Prêmio</div>
+    <div style="display:grid;grid-template-columns:80px 1fr;gap:.5rem;margin-bottom:.875rem">
+      <div class="fg" style="margin:0"><label class="lbl">Emoji</label><input class="inp" id="ep-em" value="${r.emoji}" maxlength="4" style="font-size:24px;text-align:center"></div>
+      <div class="fg" style="margin:0"><label class="lbl">Nome *</label><input class="inp" id="ep-nome" value="${escHtml(r.nome)}"></div>
+    </div>
+    <div class="fg"><label class="lbl">Descrição</label><input class="inp" id="ep-desc" value="${escHtml(r.descricao||'')}"></div>
+    <div class="fg"><label class="lbl">Custo em Pontos *</label><input class="inp" id="ep-pts" type="number" value="${r.pontos}" min="1" style="font-family:var(--mono);font-weight:700;font-size:18px"></div>
+    <button class="btn btn-primary btn-block" onclick="doEditPremio(${r.id})">💾 Salvar</button>
+    <button class="btn btn-outline btn-block mt1" onclick="closeModal()">Cancelar</button>
+  `;
+  document.getElementById('overlay').style.display='flex';
+}
+
+function confirmDel(cid,nome){
+  document.getElementById('modal-body').innerHTML=`
+    <div class="modal-title" style="color:var(--red)">⚠️ Excluir Cliente</div>
+    <p style="margin-bottom:1.5rem;color:var(--muted)">Excluir <b>${nome}</b>? Todo histórico será apagado do banco de dados.</p>
+    <button class="btn btn-danger btn-block" id="del-btn" style="margin-bottom:.5rem" onclick="doDel('${cid}')">Sim, excluir</button>
+    <button class="btn btn-outline btn-block" onclick="openModal('${cid}')">Cancelar</button>
+  `;
+}
+
+// ── ACTIONS ────────────────────────────────────────────────
+function updPrev(v){const pts=calcPts(parseFloat(v)||0);const el=document.getElementById('pts-num');if(el)el.textContent=pts;}
+function setBtnLoading(id,loading,txt){const b=document.getElementById(id);if(b){b.disabled=loading;b.textContent=loading?'Aguarde...':txt;}}
+
+async function doCompra(cid){
+  const val=parseFloat(document.getElementById('v-inp')?.value)||0;
+  if(val<=0){toast('⚠️ Informe o valor');return;}
+  setBtnLoading('confirm-btn',true,'✅ Confirmar Compra');
+  try{
+    const pts=await registerPurchase(cid,val);
+    toast(`✅ +${pts} pontos adicionados!`);
+    S.cCliente=null;nav('dashboard');
+  }catch(e){toast('⚠️ Erro ao registrar compra');setBtnLoading('confirm-btn',false,'✅ Confirmar Compra');}
+}
+
+async function doCadastro(){
+  const nome=document.getElementById('nc-nome')?.value?.trim();
+  const tel=document.getElementById('nc-tel')?.value?.trim()||'';
+  if(!nome){toast('⚠️ Informe o nome');return;}
+  if(S.customers.some(c=>c.nome.toLowerCase()===nome.toLowerCase())){toast('⚠️ Cliente já cadastrado');return;}
+  setBtnLoading('add-cust-btn',true,'Cadastrar Cliente');
+  try{
+    await addCustomer(nome,tel);
+    closeModal();toast(`✅ ${nome} cadastrado!`);nav('clientes');
+  }catch(e){toast('⚠️ Erro ao cadastrar');setBtnLoading('add-cust-btn',false,'Cadastrar Cliente');}
+}
+
+async function doResgate(cid,rid){
+  const r=S.rewards.find(x=>x.id===rid);
+  try{
+    const ok=await redeemReward(cid,rid);
+    if(ok){closeModal();toast(`🎉 ${r.nome} resgatado!`);renderAll();}
+    else toast('⚠️ Pontos insuficientes');
+  }catch(e){toast('⚠️ Erro ao resgatar');}
+}
+
+async function doAddPremio(){
+  const emoji=document.getElementById('rp-em')?.value?.trim()||'🎁';
+  const nome=document.getElementById('rp-nome')?.value?.trim();
+  const descricao=document.getElementById('rp-desc')?.value?.trim()||'';
+  const pontos=parseInt(document.getElementById('rp-pts')?.value)||0;
+  if(!nome||pontos<=0){toast('⚠️ Preencha nome e pontos');return;}
+  setBtnLoading('add-rwd-btn',true,'Adicionar Prêmio');
+  try{
+    await addReward({nome,descricao,pontos,emoji});
+    closeModal();toast('✅ Prêmio adicionado!');renderAll();
+  }catch(e){toast('⚠️ Erro ao salvar');setBtnLoading('add-rwd-btn',false,'Adicionar Prêmio');}
+}
+
+async function doEditPremio(rid){
+  const emoji=document.getElementById('ep-em')?.value?.trim()||'🎁';
+  const nome=document.getElementById('ep-nome')?.value?.trim();
+  const descricao=document.getElementById('ep-desc')?.value?.trim()||'';
+  const pontos=parseInt(document.getElementById('ep-pts')?.value)||0;
+  if(!nome||pontos<=0){toast('⚠️ Preencha nome e pontos');return;}
+  try{
+    await updateReward(rid,{emoji,nome,descricao,pontos});
+    closeModal();toast('✅ Prêmio atualizado!');renderAll();
+  }catch(e){toast('⚠️ Erro ao salvar');}
+}
+
+async function doRemovePremio(id){
+  if(!confirm('Remover este prêmio?'))return;
+  try{await removeReward(id);toast('Prêmio removido');renderAll();}
+  catch(e){toast('⚠️ Erro ao remover');}
+}
+
+async function doEditCust(cid){
+  const nome=document.getElementById('ec-nome')?.value?.trim();
+  const tel=document.getElementById('ec-tel')?.value?.trim()||'';
+  const pts=parseInt(document.getElementById('ec-pts')?.value);
+  if(!nome){toast('⚠️ Informe o nome');return;}
+  if(isNaN(pts)||pts<0){toast('⚠️ Pontos inválidos');return;}
+  setBtnLoading('save-cust-btn',true,'💾 Salvar');
+  try{
+    await updateCustomer(cid,{nome,tel,pontos:pts});
+    toast('✅ Atualizado!');
+    const txs=await loadCustomerTx(cid);
+    renderCustModal(txs);
+  }catch(e){toast('⚠️ Erro ao salvar');setBtnLoading('save-cust-btn',false,'💾 Salvar');}
+}
+
+async function doDel(cid){
+  setBtnLoading('del-btn',true,'Excluindo...');
+  try{await deleteCustomer(cid);closeModal();toast('Cliente excluído');nav('clientes');}
+  catch(e){toast('⚠️ Erro ao excluir');setBtnLoading('del-btn',false,'Sim, excluir');}
+}
+
+function fromModal(cid,action){closeModal();if(action==='compra'){S.cCliente=cid;nav('compra');}}
+
+async function changeReais(delta){
+  let v=(S.config.reais_por_ponto||10)+delta;
+  if(v<5)v=5;
+  try{await saveConfig({reais_por_ponto:v});renderAll();}
+  catch(e){toast('⚠️ Erro ao salvar');}
+}
+async function setReais(v){
+  try{await saveConfig({reais_por_ponto:v});renderAll();}
+  catch(e){toast('⚠️ Erro ao salvar');}
+}
+async function doSaveNome(){
+  const nome=document.getElementById('cfg-nome')?.value?.trim();
+  if(!nome){toast('⚠️ Informe o nome');return;}
+  try{
+    await saveConfig({nome_loja:nome});
+    document.getElementById('loja-nome').innerHTML=`${nome}<small>Painel do Dono</small>`;
+    toast('✅ Nome salvo!');renderAll();
+  }catch(e){toast('⚠️ Erro ao salvar');}
+}
+
+// ── NAV ────────────────────────────────────────────────────
+document.querySelectorAll('.nav-btn').forEach(b=>b.addEventListener('click',()=>nav(b.dataset.view)));
+
+// ── INIT ───────────────────────────────────────────────────
+loadAll();
+</script>
+</body>
+</html>
