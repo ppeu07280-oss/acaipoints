@@ -135,6 +135,17 @@ body{font-family:var(--font);background:var(--bg);color:var(--text);min-height:1
 /* ── BACK BTN ── */
 .back-btn{background:none;border:none;color:rgba(255,255,255,.7);font-size:13px;font-weight:600;cursor:pointer;font-family:var(--font);display:flex;align-items:center;gap:.25rem;padding:.25rem 0;position:relative;z-index:1;margin-bottom:1rem}
 .back-btn:hover{color:white}
+
+/* ── CADASTRO ── */
+.cad-screen{padding:0 1.25rem 2rem}
+.cad-card{background:var(--card);border-radius:20px;padding:1.5rem;border:1px solid var(--border);box-shadow:0 8px 32px rgba(0,0,0,.4)}
+.cad-title{font-size:18px;font-weight:800;margin-bottom:.25rem}
+.cad-sub{font-size:12px;color:var(--muted);margin-bottom:1.25rem}
+.cad-fg{margin-bottom:.875rem}
+.cad-lbl{display:block;font-size:11px;font-weight:700;color:var(--muted);margin-bottom:.375rem;text-transform:uppercase;letter-spacing:.4px}
+.cad-inp{width:100%;padding:.8rem 1rem;border:2px solid var(--border);border-radius:12px;font-size:15px;background:var(--card2);color:var(--text);font-family:var(--font);transition:.15s}
+.cad-inp:focus{outline:none;border-color:var(--brand);box-shadow:0 0 0 4px rgba(109,40,217,.2)}
+.cad-inp::placeholder{color:var(--muted)}
 </style>
 </head>
 <body>
@@ -158,6 +169,12 @@ body{font-family:var(--font);background:var(--bg);color:var(--text);min-height:1
           <input class="srch-inp" id="search-inp" placeholder="Digite seu número de telefone" oninput="onSearch(this.value)" autocomplete="off">
         </div>
         <div class="search-results" id="search-results"></div>
+        <div style="text-align:center;margin-top:1rem;padding-top:1rem;border-top:1px solid var(--border)">
+          <div style="font-size:12px;color:var(--muted);margin-bottom:.625rem">Ainda não é cliente?</div>
+          <button class="btn btn-outline btn-block" onclick="openCadastro()" style="font-size:13px;padding:.65rem">
+            ✨ Quero me cadastrar grátis
+          </button>
+        </div>
       </div>
     </div>
 
@@ -169,6 +186,39 @@ body{font-family:var(--font);background:var(--bg);color:var(--text);min-height:1
     <div class="section">
       <div class="sec-title">🏆 Ranking de Clientes</div>
       <div id="ranking-preview"></div>
+    </div>
+  </div>
+
+  <!-- Estado: cadastro -->
+  <div id="screen-cadastro" style="display:none">
+    <div class="hero" style="padding-bottom:4rem">
+      <div class="hero-content">
+        <button class="back-btn" onclick="goBackFromCadastro()">← Voltar</button>
+        <div style="font-size:28px;margin-bottom:.5rem">🎉</div>
+        <div class="hero-title">Bem-vindo!</div>
+        <div class="hero-sub">Crie sua conta grátis</div>
+      </div>
+    </div>
+    <div class="cad-screen" style="margin-top:-2.5rem;position:relative;z-index:10">
+      <div class="cad-card">
+        <div class="cad-title">Cadastro rápido</div>
+        <div class="cad-sub">Só nome e telefone — leva 10 segundos!</div>
+        <div class="cad-fg">
+          <label class="cad-lbl">Seu nome completo *</label>
+          <input class="cad-inp" id="cad-nome" placeholder="Ex: João Silva" autocomplete="name">
+        </div>
+        <div class="cad-fg">
+          <label class="cad-lbl">Telefone / WhatsApp *</label>
+          <input class="cad-inp" id="cad-tel" type="tel" placeholder="Ex: 74 99999-9999" autocomplete="tel">
+        </div>
+        <div id="cad-err" style="color:#f87171;font-size:13px;font-weight:600;margin-bottom:.75rem;display:none"></div>
+        <button class="btn btn-primary btn-block" id="cad-btn" onclick="doCadastro()" style="padding:.9rem;font-size:15px">
+          🚀 Criar minha conta
+        </button>
+        <div style="font-size:11px;color:var(--muted);text-align:center;margin-top:.875rem">
+          Ao se cadastrar você aceita participar do programa de fidelidade João do Açaí
+        </div>
+      </div>
     </div>
   </div>
 
@@ -441,6 +491,59 @@ function renderProfile(c,txs){
   `;
 
   window.scrollTo({top:0,behavior:'smooth'});
+}
+
+
+// ── CADASTRO ────────────────────────────────────────────────
+function openCadastro(){
+  document.getElementById('screen-search').style.display='none';
+  document.getElementById('screen-cadastro').style.display='block';
+  document.getElementById('cad-nome').focus();
+  window.scrollTo({top:0,behavior:'smooth'});
+}
+
+function goBackFromCadastro(){
+  document.getElementById('screen-cadastro').style.display='none';
+  document.getElementById('screen-search').style.display='block';
+  document.getElementById('cad-nome').value='';
+  document.getElementById('cad-tel').value='';
+  document.getElementById('cad-err').style.display='none';
+}
+
+async function doCadastro(){
+  const nome = document.getElementById('cad-nome').value.trim();
+  const tel  = document.getElementById('cad-tel').value.trim();
+  const errEl = document.getElementById('cad-err');
+  const btn   = document.getElementById('cad-btn');
+
+  errEl.style.display='none';
+  if(!nome){ errEl.textContent='⚠️ Informe seu nome.'; errEl.style.display='block'; return; }
+  if(!tel){  errEl.textContent='⚠️ Informe seu telefone.'; errEl.style.display='block'; return; }
+
+  // Verificar se telefone já existe
+  const telNum = tel.replace(/\D/g,'');
+  const {data:existing} = await sb.from('customers').select('id').ilike('tel','%'+telNum+'%').limit(1);
+  if(existing && existing.length>0){
+    errEl.textContent='⚠️ Esse telefone já está cadastrado. Busque pelo número acima!';
+    errEl.style.display='block';
+    return;
+  }
+
+  btn.disabled=true; btn.textContent='Cadastrando...';
+  try{
+    const {data,error} = await sb.from('customers').insert({
+      nome, tel, pontos:0, total:0, resgatados:0
+    }).select().single();
+    if(error) throw error;
+    toast('🎉 Cadastro realizado! Bem-vindo(a)!');
+    goBackFromCadastro();
+    // Abrir perfil automaticamente
+    setTimeout(()=>openProfile(data.id), 800);
+  }catch(e){
+    errEl.textContent='⚠️ Erro ao cadastrar. Tente novamente.';
+    errEl.style.display='block';
+    btn.disabled=false; btn.textContent='🚀 Criar minha conta';
+  }
 }
 
 function goBack(){
