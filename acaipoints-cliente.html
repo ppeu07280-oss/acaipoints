@@ -152,10 +152,10 @@ body{font-family:var(--font);background:var(--bg);color:var(--text);min-height:1
     <div class="search-section">
       <div class="search-card">
         <div class="search-title">🔍 Consulte seus pontos</div>
-        <div class="search-sub">Digite seu nome ou telefone</div>
+        <div class="search-sub">Digite seu número de telefone completo</div>
         <div class="srch-wrap">
           <span class="srch-ico">📱</span>
-          <input class="srch-inp" id="search-inp" placeholder="Ex: João Silva ou 99999-9999" oninput="onSearch(this.value)" autocomplete="off">
+          <input class="srch-inp" id="search-inp" placeholder="Digite seu número de telefone" oninput="onSearch(this.value)" autocomplete="off">
         </div>
         <div class="search-results" id="search-results"></div>
       </div>
@@ -264,16 +264,17 @@ function toast(msg,ms=3000,green=true){
 // ── SEARCH ─────────────────────────────────────────────────
 function onSearch(val){
   clearTimeout(searchTimer);
-  const q=val.trim();
-  if(q.length<2){document.getElementById('search-results').innerHTML='';return;}
+  const q=val.trim().replace(/\D/g,''); // só números
+  if(q.length<8){document.getElementById('search-results').innerHTML='';return;}
   document.getElementById('search-results').innerHTML=`<div style="text-align:center;padding:.75rem;color:var(--muted);font-size:13px">Buscando...</div>`;
-  searchTimer=setTimeout(()=>doSearch(q),400);
+  searchTimer=setTimeout(()=>doSearch(q),600);
 }
 
 async function doSearch(q){
   try{
+    // busca exata: telefone do banco também só números
     const{data}=await sb.from('customers').select('id,nome,tel,pontos,total')
-      .or(`nome.ilike.%${q}%,tel.ilike.%${q}%`).limit(5);
+      .ilike('tel',`%${q}%`).limit(1);
     renderSearchResults(data||[],q);
   }catch(e){
     document.getElementById('search-results').innerHTML=`<div style="text-align:center;padding:.75rem;color:var(--red);font-size:13px">Erro ao buscar. Tente novamente.</div>`;
@@ -283,22 +284,23 @@ async function doSearch(q){
 function renderSearchResults(list,q){
   const el=document.getElementById('search-results');
   if(list.length===0){
-    el.innerHTML=`<div style="text-align:center;padding:1rem;color:var(--muted);font-size:13px">Nenhum cliente encontrado para "<b>${escHtml(q)}</b>"</div>`;
+    el.innerHTML=`<div style="text-align:center;padding:1rem;color:var(--muted);font-size:13px">Número não encontrado. Cadastre-se na loja!</div>`;
     return;
   }
-  el.innerHTML=list.map(c=>`
+  // Mostra apenas 1 resultado sem nome visível a outros
+  const c=list[0];
+  el.innerHTML=`
     <div class="result-item" onclick="openProfile('${c.id}')">
-      <div style="width:40px;height:40px;border-radius:50%;background:${avColor(c.id)};display:flex;align-items:center;justify-content:center;font-size:14px;font-weight:800;color:white;flex-shrink:0">${initials(c.nome)}</div>
+      <div style="width:40px;height:40px;border-radius:50%;background:var(--brand);display:flex;align-items:center;justify-content:center;font-size:18px;flex-shrink:0">✅</div>
       <div style="flex:1;min-width:0">
-        <div class="result-name">${escHtml(c.nome)}</div>
-        <div class="result-sub">${c.tel||'Sem telefone'}</div>
+        <div class="result-name">Número encontrado!</div>
+        <div class="result-sub">Toque para ver seus pontos</div>
       </div>
       <div style="text-align:right">
         <div style="font-size:18px;font-weight:800;color:var(--brand);font-family:var(--mono)">${c.pontos}</div>
         <div style="font-size:10px;color:var(--muted)">pontos</div>
       </div>
-    </div>
-  `).join('');
+    </div>`;
 }
 
 // ── REWARDS PREVIEW ────────────────────────────────────────
@@ -374,16 +376,19 @@ function renderProfile(c,txs){
     <div class="strip-stat"><div class="strip-val">${c.resgatados}</div><div class="strip-lbl">Resgatados</div></div>
   `;
 
-  // Prêmios
+  // Prêmios - só visualização, resgate apenas na loja
   const avail=rewards.filter(r=>r.pontos<=c.pontos);
   const locked=rewards.filter(r=>r.pontos>c.pontos);
   document.getElementById('profile-rewards').innerHTML=`
+    <div style="background:rgba(109,40,217,.1);border:1px solid var(--border);border-radius:10px;padding:.625rem 1rem;font-size:12px;color:var(--muted);margin-bottom:.75rem;text-align:center">
+      🏪 O resgate de prêmios é feito presencialmente na loja
+    </div>
     ${avail.length===0&&locked.length===0?`<div class="empty"><div class="empty-ico">🎁</div><p style="font-size:13px">Nenhum prêmio disponível</p></div>`:''}
     ${avail.map(r=>`
-      <div class="rwd-card available" onclick="confirmResgate('${c.id}',${r.id})">
+      <div class="rwd-card" style="cursor:default">
         <div class="rwd-ico">${r.emoji}</div>
         <div style="flex:1;min-width:0"><div class="rwd-name">${escHtml(r.nome)}</div><div class="rwd-desc">${escHtml(r.descricao||'')}</div></div>
-        <div class="rwd-badge ok">${r.pontos} pts</div>
+        <div class="rwd-badge ok">✅ ${r.pontos} pts</div>
       </div>`).join('')}
     ${locked.length?`<div style="font-size:11px;font-weight:700;color:var(--muted);text-transform:uppercase;letter-spacing:.6px;margin:.75rem 0 .5rem">Bloqueados</div>
     ${locked.map(r=>`
