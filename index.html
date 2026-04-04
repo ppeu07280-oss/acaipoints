@@ -248,6 +248,13 @@ main{flex:1;padding:1.125rem;padding-bottom:2.5rem}
 </div>
 
 <script>
+// ── SUPABASE (deve ser o primeiro!) ────────────────────────
+const { createClient } = supabase;
+const sb = createClient(
+  'https://hnculphposmgfvaeliiw.supabase.co',
+  'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImhuY3VscGhwb3NtZ2Z2YWVsaWl3Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzQ4MTE4MDIsImV4cCI6MjA5MDM4NzgwMn0.mlkDEf0HI6XQm2mX7Ee3CWcR8WxevJiy3l2xBdvTaNM'
+);
+
 // ── AUTH ───────────────────────────────────────────────────
 let loginAttempts = 0;
 let lockUntil = 0;
@@ -309,13 +316,6 @@ function toggleEye(){
   const { data } = await sb.auth.getSession();
   if(data?.session?.user){ enterAdmin(); }
 })();
-
-// ── SUPABASE ───────────────────────────────────────────────
-const { createClient } = supabase;
-const sb = createClient(
-  'https://hnculphposmgfvaeliiw.supabase.co',
-  'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImhuY3VscGhwb3NtZ2Z2YWVsaWl3Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzQ4MTE4MDIsImV4cCI6MjA5MDM4NzgwMn0.mlkDEf0HI6XQm2mX7Ee3CWcR8WxevJiy3l2xBdvTaNM'
-);
 
 // ── CONSTANTS ──────────────────────────────────────────────
 const TIERS=[
@@ -503,7 +503,7 @@ function overlayClick(e){if(e.target===document.getElementById('overlay'))closeM
 // ── VIEWS ──────────────────────────────────────────────────
 function renderClientes(){
   const el=document.getElementById('main');
-  if(S.view==='clientes') el.innerHTML=renderClientesView()ntesView();
+  if(S.view==='clientes') el.innerHTML=renderClientesView();
 }
 
 
