@@ -613,7 +613,7 @@ function renderAll(){
   const m=document.getElementById('main');
   const fns={dashboard:renderDashboard,clientes:renderClientesView,compra:renderCompra,ranking:renderRanking,premios:renderPremios,config:renderConfig};
   m.innerHTML=(fns[S.view]||renderDashboard)();
-  if(S.view==='compra'&&!S.cCliente) renderCompraResults();
+  if(S.view==='compra'&&!S.cCliente){ setTimeout(()=>{ renderCompraResults(); const inp=document.getElementById('compra-search-inp'); if(inp){inp.focus();} },0); }
   if(S.view==='clientes') renderClientesResults();
   const s=getStats();
   const hdr=document.getElementById('hdr-info');
@@ -1314,7 +1314,15 @@ async function doDel(cid){
   catch(e){toast('⚠️ Erro ao excluir');setBtnLoading('del-btn',false,'Sim, excluir');}
 }
 
-function fromModal(cid,action){closeModal();if(action==='compra'){S.cCliente=cid;nav('compra');}}
+function fromModal(cid,action){
+  closeModal();
+  if(action==='compra'){
+    S.cCliente=cid;
+    S.view='compra';
+    document.querySelectorAll('.nav-btn').forEach(b=>b.classList.toggle('active',b.dataset.view==='compra'));
+    renderAll();
+  }
+}
 
 async function changeReais(delta){
   let v=(S.config.reais_por_ponto||10)+delta;
