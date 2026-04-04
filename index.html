@@ -30,7 +30,9 @@
   }
 }
 body{font-family:var(--font);background:var(--bg);color:var(--text);min-height:100vh;font-size:15px;line-height:1.5}
-#app{max-width:500px;margin:0 auto;min-height:100vh;display:flex;flex-direction:column}
+
+/* ── LAYOUT BASE (mobile first) ── */
+#app{min-height:100vh;display:flex;flex-direction:column}
 
 header{background:linear-gradient(135deg,var(--brand-dark) 0%,var(--brand2) 100%);color:white;padding:1rem 1.25rem 0;position:sticky;top:0;z-index:100;box-shadow:0 2px 20px rgba(109,40,217,.35)}
 .hdr-top{display:flex;align-items:center;justify-content:space-between;margin-bottom:.875rem}
@@ -46,6 +48,7 @@ header{background:linear-gradient(135deg,var(--brand-dark) 0%,var(--brand2) 100%
 @keyframes pulse{0%,100%{opacity:1}50%{opacity:.4}}
 @keyframes spin{to{transform:rotate(360deg)}}
 
+/* Mobile nav (tabs no topo) */
 nav{display:flex;overflow-x:auto;scrollbar-width:none;gap:2px;padding-bottom:2px}
 nav::-webkit-scrollbar{display:none}
 .nav-btn{background:transparent;border:none;color:rgba(255,255,255,.6);padding:.6rem .9rem;font-size:12.5px;font-weight:600;cursor:pointer;white-space:nowrap;border-radius:8px 8px 0 0;transition:.15s;font-family:var(--font);border-bottom:2.5px solid transparent}
@@ -53,6 +56,63 @@ nav::-webkit-scrollbar{display:none}
 .nav-btn:hover:not(.active){color:rgba(255,255,255,.88)}
 
 main{flex:1;padding:1.125rem;padding-bottom:2.5rem}
+
+/* ── DESKTOP LAYOUT ── */
+@media(min-width:900px){
+  #app{flex-direction:row;align-items:stretch}
+
+  /* Sidebar esquerda */
+  header{
+    width:240px;flex-shrink:0;
+    position:sticky;top:0;height:100vh;
+    padding:1.5rem 1rem 1.5rem;
+    display:flex;flex-direction:column;
+    box-shadow:2px 0 20px rgba(109,40,217,.2);
+  }
+  .hdr-top{flex-direction:column;align-items:flex-start;gap:.75rem;margin-bottom:1.5rem}
+  .brand{width:100%}
+  .brand-logo{width:48px;height:48px;font-size:24px}
+  .brand-text{font-size:16px}
+  .hdr-stats{text-align:left;font-size:12px;background:rgba(255,255,255,.1);border-radius:10px;padding:.625rem .75rem;width:100%}
+
+  /* Nav vira sidebar vertical */
+  nav{
+    flex-direction:column;overflow-x:visible;
+    gap:4px;padding-bottom:0;flex:1;
+  }
+  .nav-btn{
+    border-radius:10px;border-bottom:none;
+    text-align:left;padding:.7rem 1rem;
+    font-size:13.5px;border-left:3px solid transparent;
+  }
+  .nav-btn.active{
+    background:rgba(255,255,255,.15);
+    border-left-color:white;border-bottom:none;
+  }
+  .nav-btn:hover:not(.active){background:rgba(255,255,255,.08)}
+
+  /* Botão de logout no final da sidebar */
+  .sidebar-footer{margin-top:auto;padding-top:1rem;border-top:1px solid rgba(255,255,255,.15)}
+
+  /* Conteúdo principal */
+  main{
+    flex:1;padding:2rem;padding-bottom:3rem;
+    max-width:900px;margin:0 auto;width:100%;
+  }
+
+  /* Grid 4 colunas no dashboard */
+  .grid2{grid-template-columns:1fr 1fr 1fr 1fr}
+
+  /* Modal maior no desktop */
+  .modal{border-radius:16px;max-width:520px;margin:auto}
+  .overlay{align-items:center}
+}
+
+@media(min-width:1200px){
+  header{width:260px}
+  main{max-width:1100px;padding:2rem 3rem}
+  .grid2{grid-template-columns:repeat(4,1fr)}
+}
 
 .card{background:var(--card);border-radius:var(--r);border:1px solid var(--border);padding:1rem 1.125rem;margin-bottom:.75rem;box-shadow:var(--shadow)}
 .card-tight{padding:.5rem .875rem}
@@ -232,13 +292,16 @@ main{flex:1;padding:1.125rem;padding-bottom:2.5rem}
       </div>
     </div>
     <nav>
-      <button class="nav-btn active" data-view="dashboard">Dashboard</button>
-      <button class="nav-btn" data-view="clientes">Clientes</button>
-      <button class="nav-btn" data-view="compra">+ Compra</button>
-      <button class="nav-btn" data-view="ranking">Ranking</button>
-      <button class="nav-btn" data-view="premios">Prêmios</button>
-      <button class="nav-btn" data-view="config">⚙️ Config</button>
+      <button class="nav-btn active" data-view="dashboard">📊 Dashboard</button>
+      <button class="nav-btn" data-view="clientes">👥 Clientes</button>
+      <button class="nav-btn" data-view="compra">➕ Registrar Compra</button>
+      <button class="nav-btn" data-view="ranking">🏆 Ranking</button>
+      <button class="nav-btn" data-view="premios">🎁 Prêmios</button>
+      <button class="nav-btn" data-view="config">⚙️ Configurações</button>
     </nav>
+    <div class="sidebar-footer">
+      <button onclick="doLogout()" style="background:rgba(255,255,255,.1);border:1px solid rgba(255,255,255,.2);color:rgba(255,255,255,.7);border-radius:10px;padding:.6rem 1rem;font-size:13px;font-weight:600;cursor:pointer;font-family:var(--font);width:100%;text-align:left;transition:.15s" onmouseover="this.style.background='rgba(255,255,255,.2)'" onmouseout="this.style.background='rgba(255,255,255,.1)'">🚪 Sair</button>
+    </div>
   </header>
   <main id="main"><div style="padding:2rem;text-align:center;color:var(--muted)"><div style="font-size:32px;margin-bottom:.5rem">🍇</div>Carregando...</div></main>
   <div id="overlay" class="overlay" style="display:none" onclick="overlayClick(event)">
@@ -1129,6 +1192,16 @@ async function doSaveNome(){
     document.getElementById('loja-nome').innerHTML=`${nome}<small>Painel do Dono</small>`;
     toast('✅ Nome salvo!');renderAll();
   }catch(e){toast('⚠️ Erro ao salvar');}
+}
+
+
+async function doLogout(){
+  await sb.auth.signOut();
+  document.getElementById('app').style.display='none';
+  document.getElementById('login-screen').style.display='flex';
+  document.getElementById('login-email').value='';
+  document.getElementById('login-pwd').value='';
+  document.getElementById('login-err').textContent='';
 }
 
 // ── NAV ────────────────────────────────────────────────────
