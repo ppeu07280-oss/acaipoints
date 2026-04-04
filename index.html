@@ -187,6 +187,18 @@ main{flex:1;padding:1.125rem;padding-bottom:2.5rem}
 .login-btn:disabled{opacity:.6;cursor:not-allowed;transform:none}
 .login-err{color:#fca5a5;font-size:13px;font-weight:600;margin-bottom:.75rem;min-height:20px}
 .login-lock{color:#fca5a5;font-size:13px;font-weight:600;padding:.75rem;background:rgba(220,38,38,.2);border-radius:10px;border:1px solid rgba(220,38,38,.3)}
+
+/* ── PRÊMIO PREMIUM ── */
+.premium-card{background:linear-gradient(135deg,#1a0533 0%,#3b0764 50%,#1a0533 100%);border:2px solid #a855f7;border-radius:18px;padding:1.25rem;margin-bottom:1rem;position:relative;overflow:hidden}
+.premium-card::before{content:'';position:absolute;inset:0;background:radial-gradient(ellipse at 50% 0%,rgba(168,85,247,.3),transparent 70%);pointer-events:none}
+.premium-badge{display:inline-flex;align-items:center;gap:5px;background:linear-gradient(135deg,#a855f7,#ec4899);color:white;padding:3px 10px;border-radius:100px;font-size:10px;font-weight:800;letter-spacing:.5px;text-transform:uppercase;margin-bottom:.75rem}
+.premium-title{font-size:20px;font-weight:900;color:white;margin-bottom:.25rem;letter-spacing:-.3px}
+.premium-desc{font-size:12px;color:rgba(255,255,255,.6);margin-bottom:.875rem}
+.premium-pts{font-size:32px;font-weight:900;color:#a855f7;font-family:var(--mono);line-height:1}
+.premium-pts-lbl{font-size:11px;color:rgba(255,255,255,.5);font-weight:600;margin-top:2px}
+.premium-winner{background:linear-gradient(135deg,#059669,#10b981);border-radius:12px;padding:.875rem 1rem;text-align:center;color:white;font-weight:800;font-size:15px;margin-top:.75rem}
+.premium-rank-row{display:flex;align-items:center;gap:.625rem;padding:.5rem 0;border-bottom:1px solid rgba(168,85,247,.2)}
+.premium-rank-row:last-child{border-bottom:none}
 </style>
 </head>
 <body>
@@ -599,7 +611,46 @@ function renderRanking(){
 }
 
 function renderPremios(){
+  const pp = S.config.premio_premium || null;
+  const topRank = [...S.customers].sort((a,b)=>b.pontos-a.pontos).slice(0,5);
   return`
+  <!-- PRÊMIO PREMIUM -->
+  <div style="margin-bottom:1.25rem">
+    <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:.75rem">
+      <div style="font-size:11px;font-weight:700;color:#a855f7;text-transform:uppercase;letter-spacing:.7px">🏆 Prêmio Premium</div>
+      ${pp&&pp.ativo ? `<button class="btn btn-sm" style="background:var(--red-light);color:var(--red);border:none" onclick="encerrarPremium()">Encerrar disputa</button>` : `<button class="btn btn-sm btn-primary" onclick="showAddPremium()">+ Criar prêmio</button>`}
+    </div>
+    ${!pp ? `<div class="card" style="text-align:center;padding:1.5rem;color:var(--muted)"><div style="font-size:32px;margin-bottom:.5rem">🏆</div><div style="font-size:13px">Nenhum prêmio premium ativo.<br>Crie um para engajar seus clientes!</div></div>` :
+    `<div class="premium-card">
+      <div style="position:relative;z-index:1">
+        <div class="premium-badge">✨ Premium · 1 unidade</div>
+        <div style="display:flex;align-items:center;gap:.75rem;margin-bottom:.75rem">
+          <div style="font-size:40px">${pp.emoji||'🏆'}</div>
+          <div><div class="premium-title">${escHtml(pp.nome)}</div><div class="premium-desc">${escHtml(pp.descricao||'')}</div></div>
+        </div>
+        <div class="premium-pts">${pp.pontos}<span style="font-size:16px"> pts</span></div>
+        <div class="premium-pts-lbl">necessários para resgatar</div>
+        ${pp.ganhador_nome ? `<div class="premium-winner">🎉 Vencedor: ${escHtml(pp.ganhador_nome)}!</div>` :
+        `<div style="margin-top:.875rem">
+          <div style="font-size:10px;font-weight:700;color:rgba(168,85,247,.8);text-transform:uppercase;letter-spacing:.5px;margin-bottom:.5rem">Liderança atual</div>
+          ${topRank.filter(c=>c.pontos>0).slice(0,3).map((c,i)=>{
+            const medals=['🥇','🥈','🥉'];
+            const pct = Math.min(100,Math.round((c.pontos/pp.pontos)*100));
+            return`<div class="premium-rank-row">
+              <div style="font-size:16px;width:22px">${medals[i]||i+1}</div>
+              <div style="flex:1;min-width:0">
+                <div style="font-size:13px;font-weight:700;color:white;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${escHtml(c.nome.split(' ')[0])}</div>
+                <div style="height:4px;background:rgba(255,255,255,.1);border-radius:100px;margin-top:3px"><div style="height:100%;width:${pct}%;background:linear-gradient(90deg,#a855f7,#ec4899);border-radius:100px"></div></div>
+              </div>
+              <div style="font-size:13px;font-weight:800;color:#a855f7;font-family:var(--mono);white-space:nowrap">${c.pontos}/${pp.pontos}</div>
+            </div>`;
+          }).join('')}
+          ${topRank.filter(c=>c.pontos>=pp.pontos).length>0?`<div style="background:rgba(5,150,105,.2);border:1px solid rgba(5,150,105,.4);border-radius:10px;padding:.625rem;text-align:center;margin-top:.75rem;font-size:12px;font-weight:700;color:#4ade80">✅ ${topRank.filter(c=>c.pontos>=pp.pontos).length} cliente(s) já atingiram a meta! Aguardando resgate na loja.</div>`:''}
+        </div>`}
+        ${pp.ativo&&!pp.ganhador_nome?`<button class="btn btn-block mt2" style="background:linear-gradient(135deg,#a855f7,#ec4899);color:white;border:none" onclick="showAwardPremium()">🎁 Registrar ganhador</button>`:''}
+      </div>
+    </div>`}
+  </div>
   <div class="flex ic jb mb2">
     <h2 style="font-size:18px;font-weight:800">Prêmios</h2>
     <button class="btn btn-primary btn-sm" onclick="showAddPremio()">+ Adicionar</button>
@@ -721,6 +772,78 @@ function enviarWhatsApp(cid){
   const msg = `Olá ${nome}! 🍇\n\nVeja seus pontos do programa de fidelidade *João do Açaí* aqui:\n👉 ${link}\n\nBusque pelo seu número e acompanhe seus pontos, prêmios e ranking! 😊`;
   const url = `https://wa.me/${telFull}?text=${encodeURIComponent(msg)}`;
   window.open(url, '_blank');
+}
+
+
+// ── PRÊMIO PREMIUM ────────────────────────────────────────
+function showAddPremium(){
+  document.getElementById('modal-body').innerHTML=`
+    <div class="modal-title">🏆 Criar Prêmio Premium</div>
+    <div class="fg"><label class="lbl">Emoji</label><input class="inp" id="pp-em" value="🏆" style="font-size:24px;text-align:center"></div>
+    <div class="fg"><label class="lbl">Nome do Prêmio *</label><input class="inp" id="pp-nome" placeholder="Ex: iPhone 16 Pro Max"></div>
+    <div class="fg"><label class="lbl">Descrição</label><input class="inp" id="pp-desc" placeholder="Ex: 256GB, Titânio Natural"></div>
+    <div class="fg"><label class="lbl">Pontos necessários *</label><input class="inp" id="pp-pts" type="number" min="1" placeholder="Ex: 500" style="font-family:var(--mono);font-weight:700;font-size:20px;text-align:center"></div>
+    <div style="background:var(--brand-light);border-radius:10px;padding:.75rem;font-size:12px;color:var(--brand);font-weight:600;margin-bottom:1rem">
+      ⚡ O primeiro cliente com pontos suficientes que vier à loja resgatar ganha!
+    </div>
+    <button class="btn btn-primary btn-block" id="pp-btn" onclick="doSavePremium()">🏆 Criar Disputa</button>
+    <button class="btn btn-outline btn-block mt1" onclick="closeModal()">Cancelar</button>
+  `;
+  document.getElementById('overlay').style.display='flex';
+}
+
+async function doSavePremium(){
+  const emoji = document.getElementById('pp-em').value.trim()||'🏆';
+  const nome  = document.getElementById('pp-nome').value.trim();
+  const desc  = document.getElementById('pp-desc').value.trim();
+  const pontos= parseInt(document.getElementById('pp-pts').value)||0;
+  if(!nome||pontos<=0){toast('⚠️ Preencha nome e pontos');return;}
+  const pp = {emoji,nome,descricao:desc,pontos,ativo:true,ganhador_id:null,ganhador_nome:null,criado_em:new Date().toISOString()};
+  try{
+    await saveConfig({premio_premium:pp});
+    closeModal();toast('🏆 Disputa criada!');renderAll();
+  }catch(e){toast('⚠️ Erro ao salvar');}
+}
+
+function showAwardPremium(){
+  const pp = S.config.premio_premium;
+  const aptos = [...S.customers].filter(c=>c.pontos>=pp.pontos).sort((a,b)=>b.pontos-a.pontos);
+  document.getElementById('modal-body').innerHTML=`
+    <div class="modal-title">🎁 Registrar Ganhador</div>
+    <div style="font-size:13px;color:var(--muted);margin-bottom:1rem">Selecione o cliente que veio resgatar o prêmio na loja:</div>
+    ${aptos.length===0
+      ? `<div style="text-align:center;padding:1rem;color:var(--muted)">Nenhum cliente atingiu a meta ainda.</div>`
+      : aptos.map(c=>`
+        <div class="cust-row" onclick="confirmAwardPremium('${c.id}','${escHtml(c.nome)}')">
+          ${avDiv(c.nome,c.id,40,14)}
+          <div style="flex:1;min-width:0"><div class="cust-name">${escHtml(c.nome)}</div><div class="cust-meta">${c.pontos} pts disponíveis</div></div>
+          <span style="color:var(--brand);font-weight:700">→</span>
+        </div>`).join('')}
+    <button class="btn btn-outline btn-block mt2" onclick="closeModal()">Cancelar</button>
+  `;
+  document.getElementById('overlay').style.display='flex';
+}
+
+async function confirmAwardPremium(cid,nome){
+  if(!confirm(`Confirmar ${nome} como ganhador do prêmio premium?`))return;
+  const pp = {...S.config.premio_premium, ganhador_id:cid, ganhador_nome:nome, ativo:false, encerrado_em:new Date().toISOString()};
+  try{
+    // Debita os pontos do ganhador
+    const c = S.customers.find(x=>x.id===cid);
+    if(c){
+      await sb.from('customers').update({pontos:c.pontos-pp.pontos, resgatados:c.resgatados+pp.pontos}).eq('id',cid);
+      await sb.from('transactions').insert({customer_id:cid,tipo:'resgate',pts:-pp.pontos,descricao:`🏆 Prêmio Premium: ${pp.nome}`});
+    }
+    await saveConfig({premio_premium:pp});
+    closeModal();toast(`🎉 ${nome} ganhou o prêmio!`);await loadAll();
+  }catch(e){toast('⚠️ Erro ao registrar');}
+}
+
+async function encerrarPremium(){
+  if(!confirm('Encerrar a disputa sem ganhador?'))return;
+  const pp = {...S.config.premio_premium, ativo:false, encerrado_em:new Date().toISOString()};
+  try{await saveConfig({premio_premium:pp});toast('Disputa encerrada');renderAll();}
+  catch(e){toast('⚠️ Erro ao encerrar');}
 }
 
 // ── MODALS ─────────────────────────────────────────────────
