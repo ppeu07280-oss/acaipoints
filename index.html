@@ -259,6 +259,10 @@ main{flex:1;padding:1.125rem;padding-bottom:2.5rem}
 .premium-winner{background:linear-gradient(135deg,#059669,#10b981);border-radius:12px;padding:.875rem 1rem;text-align:center;color:white;font-weight:800;font-size:15px;margin-top:.75rem}
 .premium-rank-row{display:flex;align-items:center;gap:.625rem;padding:.5rem 0;border-bottom:1px solid rgba(168,85,247,.2)}
 .premium-rank-row:last-child{border-bottom:none}
+
+/* ── ONLINE ── */
+.online-dot{width:8px;height:8px;border-radius:50%;background:#4ade80;display:inline-block;flex-shrink:0;box-shadow:0 0 6px #4ade80;animation:pulse 2s infinite}
+.online-badge{display:inline-flex;align-items:center;gap:4px;background:rgba(74,222,128,.15);border:1px solid rgba(74,222,128,.3);color:#4ade80;padding:2px 8px;border-radius:100px;font-size:10.5px;font-weight:700}
 </style>
 </head>
 <body>
@@ -515,15 +519,20 @@ async function saveConfig(cfg){
   Object.assign(S.config,cfg);
 }
 
+function isOnline(c){
+  if(!c.last_seen) return false;
+  return (Date.now() - new Date(c.last_seen).getTime()) < 5*60*1000; // 5 minutos
+}
+
 function getStats(){
   const hoje=new Date().toDateString();
-  // count today from cache
   let hoje_count=0;
   Object.values(S.transactions).forEach(txs=>{
     hoje_count+=txs.filter(h=>h.tipo==='compra'&&new Date(h.created_at).toDateString()===hoje).length;
   });
   return{
     clientes:S.customers.length,
+    online:S.customers.filter(c=>isOnline(c)).length,
     totalPts:S.customers.reduce((s,c)=>s+c.total,0),
     resgatados:S.customers.reduce((s,c)=>s+c.resgatados,0),
     faturamento:S.customers.reduce((s,c)=>s+(c.total*(S.config.reais_por_ponto||10)),0),
@@ -547,10 +556,19 @@ function isDark(){return window.matchMedia('(prefers-color-scheme:dark)').matche
 function tierBadge(total){const t=getTier(total);const bg=isDark()?TIER_DARK[t.nome]+'33':t.bg;return`<span class="tier-chip" style="background:${bg};color:${t.color}">${t.icon} ${t.nome}</span>`;}
 function avDiv(nome,id,size=40,fs=14){return`<div class="av" style="width:${size}px;height:${size}px;font-size:${fs}px;background:${avColor(id)}">${initials(nome)}</div>`;}
 function custRow(c,mini=false){
+  const online = isOnline(c);
   return`<div class="cust-row" onclick="openModal('${c.id}')">
-    ${avDiv(c.nome,c.id)}
-    <div style="flex:1;min-width:0"><div class="cust-name">${escHtml(c.nome)}</div>
-    <div class="cust-meta">${mini?tierBadge(c.total):(c.tel||'Sem telefone')}</div></div>
+    <div style="position:relative">
+      ${avDiv(c.nome,c.id)}
+      ${online?`<span style="position:absolute;bottom:0;right:0;width:10px;height:10px;background:#4ade80;border-radius:50%;border:2px solid var(--card);box-shadow:0 0 6px #4ade80"></span>`:''}
+    </div>
+    <div style="flex:1;min-width:0">
+      <div class="cust-name" style="display:flex;align-items:center;gap:.375rem">
+        ${escHtml(c.nome)}
+        ${online?'<span class="online-badge">● online</span>':''}
+      </div>
+      <div class="cust-meta">${mini?tierBadge(c.total):(c.tel||'Sem telefone')}</div>
+    </div>
     <div class="cust-pts"><div class="pts-val">${c.pontos}</div><div class="pts-lbl">pontos</div></div>
   </div>`;
 }
@@ -607,9 +625,13 @@ function renderDashboard(){
   return`
   <div class="grid2">
     <div class="stat"><div class="stat-label">Clientes</div><div class="stat-val">${s.clientes}</div><div class="stat-sub">cadastrados</div></div>
-    <div class="stat"><div class="stat-label">Pts Distribuídos</div><div class="stat-val">${s.totalPts.toLocaleString()}</div><div class="stat-sub">no total</div></div>
+    <div class="stat" style="border-top-color:#4ade80">
+      <div class="stat-label" style="display:flex;align-items:center;gap:4px"><span class="online-dot"></span>Online agora</div>
+      <div class="stat-val" style="color:#4ade80">${s.online}</div>
+      <div class="stat-sub">${s.online===1?'cliente no site':'clientes no site'}</div>
+    </div>
     <div class="stat"><div class="stat-label">Faturamento Est.</div><div class="stat-val" style="font-size:17px">${fmtR(s.faturamento)}</div><div class="stat-sub">acumulado</div></div>
-    <div class="stat"><div class="stat-label">Pts Resgatados</div><div class="stat-val">${s.resgatados.toLocaleString()}</div><div class="stat-sub">no total</div></div>
+    <div class="stat"><div class="stat-label">Pts Distribuídos</div><div class="stat-val">${s.totalPts.toLocaleString()}</div><div class="stat-sub">no total</div></div>
   </div>
   ${top3.length?`<div class="card"><div class="sec-hdr"><span class="sec-title">🏆 Top Clientes</span><button class="btn btn-sm btn-outline" onclick="nav('ranking')">Ver ranking</button></div>${top3.map(c=>custRow(c,true)).join('')}</div>`:''}
   <button class="btn btn-primary btn-block mt1" onclick="nav('compra')" style="padding:1rem;font-size:15px">+ Registrar Nova Compra</button>
@@ -1074,7 +1096,10 @@ function renderCustModal(txs){
     <div class="flex ic gap2" style="margin-bottom:1rem">
       ${avDiv(c.nome,c.id,54,19)}
       <div style="flex:1">
-        <div style="font-size:19px;font-weight:800">${escHtml(c.nome)}</div>
+        <div style="font-size:19px;font-weight:800;display:flex;align-items:center;gap:.5rem">
+          ${escHtml(c.nome)}
+          ${isOnline(c)?'<span class="online-badge">● online</span>':''}
+        </div>
         <div class="text-sm text-muted">${c.tel||'Sem telefone'} · ${new Date(c.created_at).toLocaleDateString('pt-BR')}</div>
         <div style="margin-top:4px">${tierBadge(c.total)}</div>
       </div>
@@ -1316,6 +1341,16 @@ async function doLogout(){
 
 // ── NAV ────────────────────────────────────────────────────
 document.querySelectorAll('.nav-btn').forEach(b=>b.addEventListener('click',()=>nav(b.dataset.view)));
+
+// Auto-refresh online status a cada 30 segundos
+setInterval(async()=>{
+  try{
+    const{data}=await sb.from('customers').select('id,last_seen');
+    if(data) data.forEach(r=>{const c=S.customers.find(x=>x.id===r.id);if(c)c.last_seen=r.last_seen;});
+    // Só re-renderiza se estiver no dashboard ou clientes
+    if(S.view==='dashboard'||S.view==='clientes') renderAll();
+  }catch(e){}
+}, 30000);
 
 // ── INIT ───────────────────────────────────────────────────
 // loadAll() é chamado após login bem-sucedido ou sessão válida
