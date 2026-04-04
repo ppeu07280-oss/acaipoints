@@ -1238,7 +1238,14 @@ async function doCadastro(){
   const nome=document.getElementById('nc-nome')?.value?.trim();
   const tel=document.getElementById('nc-tel')?.value?.trim()||'';
   if(!nome){toast('⚠️ Informe o nome');return;}
-  if(S.customers.some(c=>c.nome.toLowerCase()===nome.toLowerCase())){toast('⚠️ Cliente já cadastrado');return;}
+  // Verificar nome duplicado
+  if(S.customers.some(c=>c.nome.toLowerCase()===nome.toLowerCase())){toast('⚠️ Nome já cadastrado');return;}
+  // Verificar telefone duplicado
+  if(tel){
+    const telNum=tel.replace(/\D/g,'');
+    const telDup=S.customers.find(c=>c.tel&&c.tel.replace(/\D/g,'')===telNum);
+    if(telDup){toast(`⚠️ Telefone já cadastrado para ${telDup.nome}`);return;}
+  }
   setBtnLoading('add-cust-btn',true,'Cadastrar Cliente');
   try{
     await addCustomer(nome,tel);
