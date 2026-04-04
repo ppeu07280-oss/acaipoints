@@ -748,7 +748,11 @@ function renderPremios(){
           }).join('')}
           ${topRank.filter(c=>c.pontos>=pp.pontos).length>0?`<div style="background:rgba(5,150,105,.2);border:1px solid rgba(5,150,105,.4);border-radius:10px;padding:.625rem;text-align:center;margin-top:.75rem;font-size:12px;font-weight:700;color:#4ade80">✅ ${topRank.filter(c=>c.pontos>=pp.pontos).length} cliente(s) já atingiram a meta! Aguardando resgate na loja.</div>`:''}
         </div>`}
-        ${pp.ativo&&!pp.ganhador_nome?`<button class="btn btn-block mt2" style="background:linear-gradient(135deg,#a855f7,#ec4899);color:white;border:none" onclick="showAwardPremium()">🎁 Registrar ganhador</button>`:''}
+        ${pp.ativo&&!pp.ganhador_nome?`
+          <div style="display:flex;gap:.5rem;margin-top:.75rem">
+            <button class="btn" style="flex:1;background:linear-gradient(135deg,#a855f7,#ec4899);color:white;border:none" onclick="showAwardPremium()">🎁 Registrar ganhador</button>
+            <button class="btn" style="flex:1;background:#25D366;color:white;border:none" onclick="showBroadcastPremium()">📣 Notificar clientes</button>
+          </div>`:''}
       </div>
     </div>`}
   </div>
@@ -881,9 +885,15 @@ function showAddPremium(){
   document.getElementById('modal-body').innerHTML=`
     <div class="modal-title">🏆 Criar Prêmio Premium</div>
     <div class="fg"><label class="lbl">Emoji</label><input class="inp" id="pp-em" value="🏆" style="font-size:24px;text-align:center"></div>
-    <div class="fg"><label class="lbl">Nome do Prêmio *</label><input class="inp" id="pp-nome" placeholder="Ex: iPhone 16 Pro Max"></div>
+    <div class="fg"><label class="lbl">Nome do Prêmio *</label><input class="inp" id="pp-nome" placeholder="Ex: iPhone 14 Pro Max"></div>
     <div class="fg"><label class="lbl">Descrição</label><input class="inp" id="pp-desc" placeholder="Ex: 256GB, Titânio Natural"></div>
-    <div class="fg"><label class="lbl">Pontos necessários *</label><input class="inp" id="pp-pts" type="number" min="1" placeholder="Ex: 500" style="font-family:var(--mono);font-weight:700;font-size:20px;text-align:center"></div>
+    <div class="fg"><label class="lbl">URL da Imagem do Produto</label>
+      <input class="inp" id="pp-img" placeholder="https://..." oninput="prevPPImg(this.value)">
+      <div id="pp-img-prev" style="margin-top:.5rem;display:none">
+        <img id="pp-img-tag" style="width:100%;max-height:160px;object-fit:contain;border-radius:10px;border:1px solid var(--border);background:var(--card2)">
+      </div>
+    </div>
+    <div class="fg"><label class="lbl">Pontos necessários *</label><input class="inp" id="pp-pts" type="number" min="1" placeholder="Ex: 870" style="font-family:var(--mono);font-weight:700;font-size:20px;text-align:center"></div>
     <div style="background:var(--brand-light);border-radius:10px;padding:.75rem;font-size:12px;color:var(--brand);font-weight:600;margin-bottom:1rem">
       ⚡ O primeiro cliente com pontos suficientes que vier à loja resgatar ganha!
     </div>
@@ -893,13 +903,21 @@ function showAddPremium(){
   document.getElementById('overlay').style.display='flex';
 }
 
+function prevPPImg(url){
+  const prev=document.getElementById('pp-img-prev');
+  const tag=document.getElementById('pp-img-tag');
+  if(url.startsWith('http')){prev.style.display='block';tag.src=url;}
+  else{prev.style.display='none';}
+}
+
 async function doSavePremium(){
-  const emoji = document.getElementById('pp-em').value.trim()||'🏆';
-  const nome  = document.getElementById('pp-nome').value.trim();
-  const desc  = document.getElementById('pp-desc').value.trim();
-  const pontos= parseInt(document.getElementById('pp-pts').value)||0;
+  const emoji    = document.getElementById('pp-em').value.trim()||'🏆';
+  const nome     = document.getElementById('pp-nome').value.trim();
+  const desc     = document.getElementById('pp-desc').value.trim();
+  const imagem   = document.getElementById('pp-img').value.trim();
+  const pontos   = parseInt(document.getElementById('pp-pts').value)||0;
   if(!nome||pontos<=0){toast('⚠️ Preencha nome e pontos');return;}
-  const pp = {emoji,nome,descricao:desc,pontos,ativo:true,ganhador_id:null,ganhador_nome:null,criado_em:new Date().toISOString()};
+  const pp = {emoji,nome,descricao:desc,imagem_url:imagem,pontos,ativo:true,ganhador_id:null,ganhador_nome:null,criado_em:new Date().toISOString()};
   try{
     await saveConfig({premio_premium:pp});
     closeModal();toast('🏆 Disputa criada!');renderAll();
@@ -945,6 +963,98 @@ async function encerrarPremium(){
   const pp = {...S.config.premio_premium, ativo:false, encerrado_em:new Date().toISOString()};
   try{await saveConfig({premio_premium:pp});toast('Disputa encerrada');renderAll();}
   catch(e){toast('⚠️ Erro ao encerrar');}
+}
+
+
+// ── BROADCAST PREMIUM ──────────────────────────────────────
+function showBroadcastPremium(){
+  const pp = S.config.premio_premium;
+  if(!pp) return;
+  const rank = [...S.customers].sort((a,b)=>b.pontos-a.pontos);
+  const comTel = rank.filter(c=>c.tel);
+  const semTel = rank.filter(c=>!c.tel);
+
+  document.getElementById('modal-body').innerHTML=`
+    <div class="modal-title">📣 Notificar Clientes</div>
+    <div style="background:rgba(37,211,102,.1);border:1px solid rgba(37,211,102,.3);border-radius:10px;padding:.75rem 1rem;font-size:13px;font-weight:600;color:#25D366;margin-bottom:1rem">
+      📲 Serão enviados ${comTel.length} WhatsApp(s) personalizados com a posição de cada cliente no ranking!
+    </div>
+    ${semTel.length>0?`<div style="font-size:12px;color:var(--muted);margin-bottom:1rem">⚠️ ${semTel.length} cliente(s) sem telefone não receberão notificação.</div>`:''}
+    <div style="max-height:220px;overflow-y:auto;margin-bottom:1rem">
+      ${comTel.slice(0,5).map((c,i)=>`
+        <div style="display:flex;align-items:center;gap:.625rem;padding:.5rem 0;border-bottom:1px solid var(--border)">
+          <div style="font-size:16px;width:24px">${['🥇','🥈','🥉'][i]||'#'+(i+1)}</div>
+          <div style="flex:1;font-size:13px;font-weight:600">${escHtml(c.nome.split(' ')[0])}</div>
+          <div style="font-size:12px;color:var(--muted)">${c.pontos}/${pp.pontos} pts</div>
+        </div>`).join('')}
+      ${comTel.length>5?`<div style="text-align:center;padding:.5rem;font-size:12px;color:var(--muted)">+${comTel.length-5} mais...</div>`:''}
+    </div>
+    <div style="font-size:11px;color:var(--muted);margin-bottom:1rem;background:var(--card2);border-radius:8px;padding:.625rem">
+      📝 Cada cliente receberá sua posição, pontos atuais e quantos faltam para ganhar
+    </div>
+    <button class="btn btn-block" style="background:#25D366;color:white;border:none;padding:.9rem;font-size:15px" onclick="dispararBroadcast()">📲 Enviar para todos</button>
+    <button class="btn btn-outline btn-block mt1" onclick="closeModal()">Cancelar</button>
+  `;
+  document.getElementById('overlay').style.display='flex';
+}
+
+let broadcastIndex = 0;
+let broadcastList = [];
+
+function dispararBroadcast(){
+  const pp = S.config.premio_premium;
+  const rank = [...S.customers].sort((a,b)=>b.pontos-a.pontos);
+  broadcastList = rank.filter(c=>c.tel);
+  broadcastIndex = 0;
+  enviarProximo(pp);
+}
+
+function enviarProximo(pp){
+  if(broadcastIndex >= broadcastList.length){
+    toast('✅ Todos os WhatsApps foram abertos!');
+    closeModal();
+    return;
+  }
+  const c = broadcastList[broadcastIndex];
+  const pos = [...S.customers].sort((a,b)=>b.pontos-a.pontos).findIndex(x=>x.id===c.id)+1;
+  const faltam = Math.max(0, pp.pontos - c.pontos);
+  const medals = {1:'🥇',2:'🥈',3:'🥉'};
+  const posStr = medals[pos] ? `${medals[pos]} ${pos}º lugar` : `${pos}º lugar`;
+  const link = 'https://ppeu07280-oss.github.io/acaipoints/acaipoints-cliente.html';
+  const tel = c.tel.replace(/\D/g,'');
+  const telFull = tel.startsWith('55') ? tel : '55'+tel;
+  const nome = c.nome.split(' ')[0];
+
+  let msg = `Oi ${nome}! 🍇\n\n`;
+  msg += `🏆 *${pp.nome}* está em disputa!\n`;
+  if(pp.imagem_url) msg += `📸 Veja o prêmio: ${pp.imagem_url}\n`;
+  msg += `\n📊 Sua posição atual: *${posStr}*\n`;
+  msg += `⭐ Seus pontos: *${c.pontos}/${pp.pontos}*\n`;
+  if(faltam > 0){
+    msg += `🎯 Faltam apenas *${faltam} pontos* para você ganhar!\n`;
+  } else {
+    msg += `✅ Você já atingiu a meta! Venha resgatar na loja!\n`;
+  }
+  msg += `\n⚡ Primeiro a chegar leva! Venha comprar e garantir seu prêmio!\n`;
+  msg += `👉 ${link}`;
+
+  const url = `https://wa.me/${telFull}?text=${encodeURIComponent(msg)}`;
+  window.open(url, '_blank');
+
+  broadcastIndex++;
+  // Aguarda 1.5s antes de abrir o próximo para não travar o browser
+  document.getElementById('modal-body').innerHTML=`
+    <div style="text-align:center;padding:2rem">
+      <div style="font-size:32px;margin-bottom:.75rem">📲</div>
+      <div style="font-size:16px;font-weight:800;margin-bottom:.5rem">Enviando ${broadcastIndex} de ${broadcastList.length}</div>
+      <div style="font-size:13px;color:var(--muted);margin-bottom:1.5rem">${escHtml(c.nome)} — ${pos}º lugar</div>
+      <div style="height:6px;background:var(--border);border-radius:100px;overflow:hidden;margin-bottom:1.5rem">
+        <div style="height:100%;width:${Math.round((broadcastIndex/broadcastList.length)*100)}%;background:linear-gradient(90deg,#25D366,#128C7E);border-radius:100px;transition:width .3s"></div>
+      </div>
+      <button class="btn btn-block" style="background:#25D366;color:white;border:none" onclick="enviarProximo(S.config.premio_premium)">Próximo →</button>
+      <button class="btn btn-outline btn-block mt1" onclick="closeModal()">Parar</button>
+    </div>
+  `;
 }
 
 // ── MODALS ─────────────────────────────────────────────────
