@@ -501,10 +501,35 @@ function closeModal(){document.getElementById('overlay').style.display='none';S.
 function overlayClick(e){if(e.target===document.getElementById('overlay'))closeModal();}
 
 // ── VIEWS ──────────────────────────────────────────────────
+function renderClientes(){
+  const el=document.getElementById('main');
+  if(S.view==='clientes') el.innerHTML=renderClientesView()ntesView();
+}
+
+
+function renderCompraResults(){
+  // Only update the results part of compra view without re-rendering input
+  const q=S.cSearch.toLowerCase();
+  const found=q.length>1?S.customers.filter(c=>c.nome.toLowerCase().includes(q)||(c.tel||'').includes(q)):[];
+  const recentes=S.customers.slice(0,6);
+  const resultsEl=document.getElementById('compra-results');
+  if(!resultsEl)return;
+  if(q.length>1){
+    resultsEl.innerHTML=found.length===0
+      ?`<div style="text-align:center;padding:1rem;color:var(--muted)">Cliente não encontrado<br><button class="btn btn-outline btn-sm mt2" onclick="showAddCust()">Cadastrar novo</button></div>`
+      :`<div class="card card-tight">${found.map(c=>`<div class="cust-row" onclick="S.cCliente='${c.id}';renderAll()">${avDiv(c.nome,c.id)}<div style="flex:1;min-width:0"><div class="cust-name">${escHtml(c.nome)}</div><div class="cust-meta">${c.tel||'Sem tel'} · ${c.pontos} pts</div></div><span style="color:var(--brand);font-weight:700">→</span></div>`).join('')}</div>`;
+  }else{
+    resultsEl.innerHTML=S.customers.length===0
+      ?`<div class="empty"><div class="empty-ico">👥</div><p style="font-size:13px">Cadastre clientes primeiro</p><button class="btn btn-primary mt2" onclick="showAddCust()">Cadastrar</button></div>`
+      :`<div class="sec-hdr"><span class="sec-title">Clientes recentes</span></div><div class="card card-tight">${recentes.map(c=>`<div class="cust-row" onclick="S.cCliente='${c.id}';renderAll()">${avDiv(c.nome,c.id)}<div style="flex:1;min-width:0"><div class="cust-name">${escHtml(c.nome)}</div><div class="cust-meta">${c.pontos} pontos</div></div><span style="color:var(--brand);font-weight:700">→</span></div>`).join('')}</div>`;
+  }
+}
+
 function renderAll(){
   const m=document.getElementById('main');
-  const fns={dashboard:renderDashboard,clientes:renderClientes,compra:renderCompra,ranking:renderRanking,premios:renderPremios,config:renderConfig};
+  const fns={dashboard:renderDashboard,clientes:renderClientesView,compra:renderCompra,ranking:renderRanking,premios:renderPremios,config:renderConfig};
   m.innerHTML=(fns[S.view]||renderDashboard)();
+  if(S.view==='compra'&&!S.cCliente) renderCompraResults();
   const s=getStats();
   const hdr=document.getElementById('hdr-info');
   if(hdr)hdr.innerHTML=`<b>${s.clientes}</b> clientes · <b>${s.totalPts.toLocaleString()}</b> pts`;
@@ -525,12 +550,12 @@ function renderDashboard(){
   `;
 }
 
-function renderClientes(){
+function renderClientesView(){
   const q=S.search.toLowerCase();
   const list=S.customers.filter(c=>c.nome.toLowerCase().includes(q)||(c.tel||'').includes(q));
   return`
   <div class="srch-wrap"><span class="srch-ico">🔍</span>
-    <input class="srch-inp" placeholder="Buscar nome ou telefone..." value="${escHtml(S.search)}" oninput="S.search=this.value;renderAll()">
+    <input class="srch-inp" placeholder="Buscar nome ou telefone..." value="${escHtml(S.search)}" oninput="S.search=this.value;renderClientes()">
   </div>
   <div class="flex ic jb mb1">
     <span class="text-sm text-muted">${list.length} cliente${list.length!==1?'s':''}</span>
@@ -568,7 +593,7 @@ function renderCompra(){
   <h2 style="font-size:18px;font-weight:800;margin-bottom:1rem">Registrar Compra</h2>
   <div class="fg"><label class="lbl">Buscar Cliente</label>
     <div class="srch-wrap" style="margin:0"><span class="srch-ico">🔍</span>
-      <input class="srch-inp" placeholder="Nome ou telefone..." value="${escHtml(S.cSearch)}" oninput="S.cSearch=this.value;renderAll()" autofocus>
+      <input class="srch-inp" placeholder="Nome ou telefone..." value="${escHtml(S.cSearch)}" oninput="S.cSearch=this.value;renderCompraResults()" autofocus>
     </div>
   </div>
   ${q.length>1?
