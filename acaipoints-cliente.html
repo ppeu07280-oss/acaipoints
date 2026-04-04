@@ -627,6 +627,22 @@ function renderProfile(c,txs){
   const next=TIERS.find(t=>t.min>c.total);
   const prog=next?Math.min(100,Math.round(((c.total-tier.min)/(next.min-tier.min))*100)):100;
 
+  // Validade dos pontos (calcular ANTES de usar no HTML)
+  const validade = config.validade_dias || 90;
+  const ref = c.updated_at || c.created_at;
+  const diasInativo = Math.floor((Date.now() - new Date(ref).getTime()) / 86400000);
+  const restamDias = validade - diasInativo;
+  let validadeHtml = '';
+  if(c.pontos > 0){
+    if(restamDias <= 0){
+      validadeHtml = `<div style="background:rgba(220,38,38,.2);border:1px solid rgba(220,38,38,.3);border-radius:10px;padding:.5rem 1rem;font-size:12px;font-weight:700;color:#f87171;margin-top:.75rem;text-align:center">⚠️ Seus pontos expiraram por inatividade.<br>Venha fazer uma compra!</div>`;
+    } else if(restamDias <= 15){
+      validadeHtml = `<div style="background:rgba(217,119,6,.2);border:1px solid rgba(217,119,6,.3);border-radius:10px;padding:.5rem 1rem;font-size:12px;font-weight:700;color:#fbbf24;margin-top:.75rem;text-align:center">🔴 Seus pontos expiram em <b>${restamDias} dias</b>! Venha comprar!</div>`;
+    } else if(restamDias <= 30){
+      validadeHtml = `<div style="background:rgba(8,145,178,.15);border:1px solid rgba(8,145,178,.3);border-radius:10px;padding:.5rem 1rem;font-size:12px;font-weight:700;color:#67e8f9;margin-top:.75rem;text-align:center">🟡 Seus pontos expiram em <b>${restamDias} dias</b></div>`;
+    }
+  }
+
   // Card do cliente
   document.getElementById('profile-card').innerHTML=`
     <div class="cust-card-top">
@@ -643,24 +659,6 @@ function renderProfile(c,txs){
     <div class="tier-badge">${tier.icon} ${tier.nome}</div>
     ${validadeHtml}
   `;
-
-  // Validade dos pontos
-  const validade = config.validade_dias || 90;
-  const ref = c.updated_at || c.created_at;
-  const diasInativo = Math.floor((Date.now() - new Date(ref).getTime()) / 86400000);
-  const restamDias = validade - diasInativo;
-
-  // Mostrar aviso de expiração no card
-  let validadeHtml = '';
-  if(c.pontos > 0){
-    if(restamDias <= 0){
-      validadeHtml = `<div style="background:rgba(220,38,38,.2);border:1px solid rgba(220,38,38,.3);border-radius:10px;padding:.5rem 1rem;font-size:12px;font-weight:700;color:#f87171;margin-top:.75rem;text-align:center">⚠️ Seus pontos expiraram por inatividade.<br>Venha fazer uma compra!</div>`;
-    } else if(restamDias <= 15){
-      validadeHtml = `<div style="background:rgba(217,119,6,.2);border:1px solid rgba(217,119,6,.3);border-radius:10px;padding:.5rem 1rem;font-size:12px;font-weight:700;color:#fbbf24;margin-top:.75rem;text-align:center">🔴 Seus pontos expiram em <b>${restamDias} dias</b>! Venha comprar!</div>`;
-    } else if(restamDias <= 30){
-      validadeHtml = `<div style="background:rgba(8,145,178,.15);border:1px solid rgba(8,145,178,.3);border-radius:10px;padding:.5rem 1rem;font-size:12px;font-weight:700;color:#67e8f9;margin-top:.75rem;text-align:center">🟡 Seus pontos expiram em <b>${restamDias} dias</b></div>`;
-    }
-  }
 
   // Progresso
   const progEl=document.getElementById('profile-progress');
