@@ -419,6 +419,19 @@ async function init(){
   }catch(e){console.error(e);}
 }
 
+// Atualiza last_seen do cliente a cada 2 minutos enquanto estiver na página
+async function pingOnline(cid){
+  try{
+    await sb.from('customers').update({last_seen: new Date().toISOString()}).eq('id',cid);
+  }catch(e){}
+}
+let pingInterval = null;
+function startPing(cid){
+  if(pingInterval) clearInterval(pingInterval);
+  pingOnline(cid);
+  pingInterval = setInterval(()=>pingOnline(cid), 120000);
+}
+
 // ── HELPERS ────────────────────────────────────────────────
 function getTier(total){return TIERS.find(t=>total>=t.min&&total<=t.max)||TIERS[0];}
 function avColor(id){let h=0;for(let i=0;i<id.length;i++)h=(h*31+id.charCodeAt(i))&0xffff;return AV_COLORS[h%AV_COLORS.length];}
@@ -598,6 +611,7 @@ async function openProfile(cid){
     currentCustomer=c;
     renderProfile(c,txs||[]);
     renderPremiumPreview(c.pontos);
+    startPing(c.id);
   }catch(e){
     toast('Erro ao carregar perfil',3000,false);goBack();
   }
