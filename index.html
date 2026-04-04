@@ -503,7 +503,10 @@ function overlayClick(e){if(e.target===document.getElementById('overlay'))closeM
 // ── VIEWS ──────────────────────────────────────────────────
 function renderClientes(){
   const el=document.getElementById('main');
-  if(S.view==='clientes') el.innerHTML=renderClientesView();
+  if(S.view==='clientes'){
+    el.innerHTML=renderClientesView();
+    renderClientesResults();
+  }
 }
 
 
@@ -530,6 +533,7 @@ function renderAll(){
   const fns={dashboard:renderDashboard,clientes:renderClientesView,compra:renderCompra,ranking:renderRanking,premios:renderPremios,config:renderConfig};
   m.innerHTML=(fns[S.view]||renderDashboard)();
   if(S.view==='compra'&&!S.cCliente) renderCompraResults();
+  if(S.view==='clientes') renderClientesResults();
   const s=getStats();
   const hdr=document.getElementById('hdr-info');
   if(hdr)hdr.innerHTML=`<b>${s.clientes}</b> clientes · <b>${s.totalPts.toLocaleString()}</b> pts`;
@@ -551,19 +555,28 @@ function renderDashboard(){
 }
 
 function renderClientesView(){
-  const q=S.search.toLowerCase();
-  const list=S.customers.filter(c=>c.nome.toLowerCase().includes(q)||(c.tel||'').includes(q));
   return`
   <div class="srch-wrap"><span class="srch-ico">🔍</span>
-    <input class="srch-inp" placeholder="Buscar nome ou telefone..." value="${escHtml(S.search)}" oninput="S.search=this.value;renderClientes()">
+    <input class="srch-inp" id="clientes-search-inp" placeholder="Buscar nome ou telefone..." value="${escHtml(S.search)}" oninput="S.search=this.value;renderClientesResults()">
   </div>
   <div class="flex ic jb mb1">
-    <span class="text-sm text-muted">${list.length} cliente${list.length!==1?'s':''}</span>
+    <span class="text-sm text-muted" id="clientes-count"></span>
     <button class="btn btn-primary btn-sm" onclick="showAddCust()">+ Novo</button>
   </div>
-  ${list.length===0?`<div class="empty"><div class="empty-ico">👥</div><p style="font-size:13px">${S.search?'Nenhum resultado':'Nenhum cliente cadastrado'}</p>${!S.search?`<button class="btn btn-primary mt2" onclick="showAddCust()">Cadastrar Primeiro Cliente</button>`:''}</div>`:
-  `<div class="card card-tight">${list.map(c=>custRow(c)).join('')}</div>`}
+  <div id="clientes-results"></div>
   `;
+}
+
+function renderClientesResults(){
+  const q=S.search.toLowerCase();
+  const list=S.customers.filter(c=>c.nome.toLowerCase().includes(q)||(c.tel||'').includes(q));
+  const countEl=document.getElementById('clientes-count');
+  const resultsEl=document.getElementById('clientes-results');
+  if(countEl) countEl.textContent=`${list.length} cliente${list.length!==1?'s':''}`;
+  if(!resultsEl) return;
+  resultsEl.innerHTML=list.length===0
+    ?`<div class="empty"><div class="empty-ico">👥</div><p style="font-size:13px">${S.search?'Nenhum resultado':'Nenhum cliente cadastrado'}</p>${!S.search?'<button class="btn btn-primary mt2" onclick="showAddCust()">Cadastrar Primeiro Cliente</button>':''}</div>`
+    :`<div class="card card-tight">${list.map(c=>custRow(c)).join('')}</div>`;
 }
 
 function renderCompra(){
