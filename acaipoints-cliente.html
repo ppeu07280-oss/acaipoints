@@ -289,7 +289,7 @@ async function init(){
     const[{data:rwds},{data:cfg},{data:rank}]=await Promise.all([
       sb.from('rewards').select('*').eq('ativo',true).order('pontos'),
       sb.from('config').select('*').eq('id',1).single(),
-      sb.from('customers').select('id,nome,total').order('total',{ascending:false}).limit(10),
+      sb.from('customers').select('id,nome,pontos').order('pontos',{ascending:false}).limit(10),
     ]);
     rewards=rwds||[];
     ranking=rank||[];
@@ -378,7 +378,7 @@ function renderRankingPreview(){
         return`<div style="display:flex;align-items:center;gap:.75rem;padding:.75rem 1rem;border-bottom:1px solid var(--border);${i===ranking.length-1?'border-bottom:none':''}${isTop?'background:'+bgs[i]+';':''}}">
           <div style="width:28px;height:28px;border-radius:50%;background:${isTop?'transparent':'var(--card2)'};display:flex;align-items:center;justify-content:center;font-size:${isTop?'20':'13'}px;font-weight:800;color:${isTop?colors[i]:'var(--muted)'};flex-shrink:0;font-family:var(--mono)">${isTop?medal:i+1}</div>
           <div style="flex:1;min-width:0;font-weight:700;font-size:14px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;color:${isTop?colors[i]:'var(--text)'}">${escHtml(c.nome.split(' ')[0])}</div>
-          <div style="font-size:15px;font-weight:800;color:var(--brand);font-family:var(--mono)">${c.total} <span style="font-size:10px;font-weight:600;color:var(--muted)">pts</span></div>
+          <div style="font-size:15px;font-weight:800;color:var(--brand);font-family:var(--mono)">${c.pontos} <span style="font-size:10px;font-weight:600;color:var(--muted)">pts</span></div>
         </div>`;
       }).join('')}
     </div>`;
