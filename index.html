@@ -343,7 +343,7 @@ async function loadAll(){
     ]);
     S.customers=custs||[];
     S.rewards=rwds||[];
-    if(cfg)S.config=cfg;
+    if(cfg)S.config={...S.config,...cfg};
     setSyncStatus('ok');
     const el=document.getElementById('loja-nome');
     if(el)el.innerHTML=`${S.config.nome_loja||'João do Açaí'}<small>Painel do Dono</small>`;
@@ -658,6 +658,56 @@ function renderConfig(){
   </div>`;
 }
 
+
+// ── VALIDADE DE PONTOS ──────────────────────────────────────
+function diasSemCompra(c){
+  // usa updated_at como proxy da última atividade
+  const ref = c.updated_at || c.created_at;
+  const dias = Math.floor((Date.now() - new Date(ref).getTime()) / 86400000);
+  return dias;
+}
+
+function getValidade(){ return S.config.validade_dias || 90; }
+
+function statusValidade(c){
+  const dias = diasSemCompra(c);
+  const validade = getValidade();
+  const restam = validade - dias;
+  if(c.pontos === 0) return null;
+  if(restam <= 0) return {tipo:'expirado', restam:0, dias};
+  if(restam <= 15) return {tipo:'urgente', restam, dias};
+  if(restam <= 30) return {tipo:'aviso', restam, dias};
+  return {tipo:'ok', restam, dias};
+}
+
+async function changeValidade(delta){
+  let v = (S.config.validade_dias||90) + delta;
+  if(v < 15) v = 15;
+  try{ await saveConfig({validade_dias:v}); renderAll(); }
+  catch(e){ toast('⚠️ Erro ao salvar'); }
+}
+
+async function expirarInativos(){
+  const validade = getValidade();
+  const inativos = S.customers.filter(c => {
+    if(c.pontos === 0) return false;
+    return diasSemCompra(c) >= validade;
+  });
+  if(inativos.length === 0){ toast('Nenhum cliente inativo para expirar'); return; }
+  if(!confirm(`Expirar pontos de ${inativos.length} cliente(s) inativo(s)?`)) return;
+  let ok = 0;
+  for(const c of inativos){
+    try{
+      await sb.from('customers').update({pontos:0}).eq('id',c.id);
+      await sb.from('transactions').insert({customer_id:c.id, tipo:'ajuste', pts:-c.pontos, descricao:'Pontos expirados por inatividade'});
+      c.pontos = 0;
+      ok++;
+    }catch(e){}
+  }
+  toast(`✅ Pontos expirados de ${ok} cliente(s)`);
+  await loadAll();
+}
+
 // ── MODALS ─────────────────────────────────────────────────
 async function openModal(cid){
   S.selCust=cid;
@@ -685,6 +735,7 @@ function renderCustModal(txs){
       <div class="p-stat"><div class="p-stat-val">${c.total}</div><div class="p-stat-lbl">Acumulados</div></div>
       <div class="p-stat"><div class="p-stat-val">${c.resgatados}</div><div class="p-stat-lbl">Resgatados</div></div>
     </div>
+    ${(()=>{const sv=statusValidade(c);if(!sv||sv.tipo==='ok')return'';const cores={expirado:'var(--red)',urgente:'#D97706',aviso:'#0891B2'};const msgs={expirado:'⚠️ Pontos expirados por inatividade',urgente:`🔴 Pontos expiram em ${sv.restam} dias!`,aviso:`🟡 Pontos expiram em ${sv.restam} dias`};return`<div style="background:${cores[sv.tipo]}22;border:1px solid ${cores[sv.tipo]}44;border-radius:10px;padding:.625rem 1rem;font-size:12px;font-weight:700;color:${cores[sv.tipo]};margin-bottom:1rem;text-align:center">${msgs[sv.tipo]}</div>`;})()}
     ${next?`<div style="margin-bottom:1rem">
       <div class="flex ic jb text-xs text-muted mb1"><span>${tier.icon} ${tier.nome}</span><span>Próximo: ${next.icon} ${next.nome} (faltam ${next.min-c.total} pts)</span></div>
       <div class="prog-bar"><div class="prog-fill" style="width:${prog}%"></div></div>
