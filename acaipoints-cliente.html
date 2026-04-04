@@ -422,13 +422,15 @@ async function init(){
 // Atualiza last_seen do cliente a cada 2 minutos enquanto estiver na página
 async function pingOnline(cid){
   try{
-    await sb.from('customers').update({last_seen: new Date().toISOString()}).eq('id',cid);
+    const{error} = await sb.from('customers').update({last_seen: new Date().toISOString()}).eq('id',cid);
+    // Ignora erros de permissão silenciosamente
   }catch(e){}
 }
 let pingInterval = null;
 function startPing(cid){
   if(pingInterval) clearInterval(pingInterval);
-  pingOnline(cid);
+  // Não bloqueia abertura do perfil — executa em background
+  setTimeout(()=>pingOnline(cid), 0);
   pingInterval = setInterval(()=>pingOnline(cid), 120000);
 }
 
@@ -608,12 +610,15 @@ async function openProfile(cid){
       sb.from('customers').select('*').eq('id',cid).single(),
       sb.from('transactions').select('*').eq('customer_id',cid).order('created_at',{ascending:false}).limit(20),
     ]);
+    if(!c){ toast('Cliente não encontrado',3000,false); goBack(); return; }
     currentCustomer=c;
     renderProfile(c,txs||[]);
     renderPremiumPreview(c.pontos);
-    startPing(c.id);
+    startPing(c.id); // background, não afeta carregamento
   }catch(e){
-    toast('Erro ao carregar perfil',3000,false);goBack();
+    console.error('Erro ao carregar perfil:',e);
+    toast('Erro ao carregar perfil. Tente novamente.',3000,false);
+    goBack();
   }
 }
 
