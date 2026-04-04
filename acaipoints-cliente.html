@@ -159,6 +159,21 @@ body{font-family:var(--font);background:var(--bg);color:var(--text);min-height:1
 .pp-progress-wrap{position:relative;z-index:1;margin-bottom:1rem}
 .pp-rank-row{display:flex;align-items:center;gap:.625rem;padding:.5rem 0;border-bottom:1px solid rgba(168,85,247,.2)}
 .pp-rank-row:last-child{border-bottom:none}
+
+/* ── NOTIFICAÇÃO PREMIUM ── */
+#pp-notif{position:fixed;inset:0;z-index:9998;display:flex;align-items:flex-end;justify-content:center;padding:1rem;background:rgba(0,0,0,.7);backdrop-filter:blur(8px)}
+.pp-notif-card{background:linear-gradient(160deg,#1a0533,#3b0764);border:2px solid #a855f7;border-radius:22px 22px 22px 22px;width:100%;max-width:400px;overflow:hidden;animation:slideUp .35s cubic-bezier(.34,1.3,.64,1)}
+.pp-notif-img{width:100%;height:200px;object-fit:cover;object-position:center}
+.pp-notif-img-placeholder{width:100%;height:140px;display:flex;align-items:center;justify-content:center;font-size:72px;background:rgba(168,85,247,.1)}
+.pp-notif-body{padding:1.25rem}
+.pp-notif-badge{display:inline-flex;align-items:center;gap:5px;background:linear-gradient(135deg,#a855f7,#ec4899);color:white;padding:3px 10px;border-radius:100px;font-size:10px;font-weight:800;letter-spacing:.5px;text-transform:uppercase;margin-bottom:.625rem}
+.pp-notif-title{font-size:20px;font-weight:900;color:white;letter-spacing:-.3px;margin-bottom:.25rem}
+.pp-notif-desc{font-size:12px;color:rgba(255,255,255,.6);margin-bottom:1rem}
+.pp-notif-rank{background:rgba(255,255,255,.08);border-radius:12px;padding:.875rem;margin-bottom:1rem;display:flex;align-items:center;gap:.875rem}
+.pp-notif-pos{font-size:36px;font-weight:900;color:#a855f7;font-family:var(--mono);line-height:1}
+.pp-notif-info{flex:1}
+.pp-notif-prog{height:6px;background:rgba(255,255,255,.1);border-radius:100px;overflow:hidden;margin-top:.375rem}
+.pp-notif-prog-fill{height:100%;background:linear-gradient(90deg,#a855f7,#ec4899);border-radius:100px}
 </style>
 </head>
 <body>
@@ -269,6 +284,21 @@ body{font-family:var(--font);background:var(--bg);color:var(--text);min-height:1
   </div>
 
   <!-- Modal de confirmação de resgate -->
+  <!-- Notificação Premium -->
+  <div id="pp-notif" style="display:none">
+    <div class="pp-notif-card">
+      <div id="pp-notif-img-wrap"></div>
+      <div class="pp-notif-body">
+        <div class="pp-notif-badge">🏆 Prêmio Premium em disputa!</div>
+        <div class="pp-notif-title" id="pp-notif-title"></div>
+        <div class="pp-notif-desc" id="pp-notif-desc"></div>
+        <div class="pp-notif-rank" id="pp-notif-rank"></div>
+        <button class="btn btn-primary btn-block" onclick="closePPNotif()" style="margin-bottom:.5rem">Ver meus pontos 👆</button>
+        <button onclick="closePPNotif()" style="background:none;border:none;color:rgba(255,255,255,.4);font-size:12px;cursor:pointer;width:100%;padding:.375rem;font-family:var(--font)">Fechar</button>
+      </div>
+    </div>
+  </div>
+
   <div id="overlay" class="overlay" style="display:none" onclick="overlayClick(event)">
     <div class="modal"><div class="modal-handle"></div><div id="modal-body"></div></div>
   </div>
@@ -301,6 +331,76 @@ let config={reais_por_ponto:10,nome_loja:'João do Açaí'};
 let currentCustomer=null;
 let searchTimer=null;
 
+
+// ── NOTIFICAÇÃO PREMIUM IN-APP ──────────────────────────────
+function showPPNotif(){
+  const pp = config.premio_premium;
+  if(!pp || !pp.ativo || pp.ganhador_nome) return;
+
+  // Mostrar só uma vez por sessão
+  if(sessionStorage.getItem('pp_notif_shown')) return;
+  sessionStorage.setItem('pp_notif_shown', '1');
+
+  const meta = pp.pontos;
+  const rank = [...ranking].sort((a,b)=>b.pontos-a.pontos);
+
+  // Imagem ou emoji
+  const imgWrap = document.getElementById('pp-notif-img-wrap');
+  if(pp.imagem_url){
+    imgWrap.innerHTML = `<img src="${pp.imagem_url}" class="pp-notif-img" onerror="this.parentElement.innerHTML='<div class=\"pp-notif-img-placeholder\">${pp.emoji||'🏆'}</div>'">`;
+  } else {
+    imgWrap.innerHTML = `<div class="pp-notif-img-placeholder">${pp.emoji||'🏆'}</div>`;
+  }
+
+  document.getElementById('pp-notif-title').textContent = pp.nome;
+  document.getElementById('pp-notif-desc').textContent = pp.descricao || `Acumule ${meta} pontos e ganhe!`;
+
+  // Posição no rank (genérica se não logado)
+  const rankEl = document.getElementById('pp-notif-rank');
+  if(currentCustomer){
+    const pos = rank.findIndex(c=>c.id===currentCustomer.id)+1 || rank.length+1;
+    const pct = Math.min(100,Math.round((currentCustomer.pontos/meta)*100));
+    const faltam = Math.max(0, meta - currentCustomer.pontos);
+    const medals = {1:'🥇',2:'🥈',3:'🥉'};
+    const posStr = medals[pos] ? medals[pos] : `#${pos}`;
+    rankEl.innerHTML = `
+      <div class="pp-notif-pos">${posStr}</div>
+      <div class="pp-notif-info">
+        <div style="font-size:13px;font-weight:700;color:white">Você está em ${pos}º lugar!</div>
+        <div style="font-size:11px;color:rgba(255,255,255,.5);margin-bottom:.375rem">${currentCustomer.pontos}/${meta} pts · faltam ${faltam}</div>
+        <div class="pp-notif-prog"><div class="pp-notif-prog-fill" style="width:${pct}%"></div></div>
+      </div>`;
+  } else {
+    // Mostrar top 3 geral
+    const top3 = rank.slice(0,3);
+    rankEl.innerHTML = `
+      <div style="width:100%">
+        <div style="font-size:12px;font-weight:700;color:rgba(255,255,255,.6);margin-bottom:.5rem;text-transform:uppercase;letter-spacing:.5px">🏁 Liderança atual</div>
+        ${top3.map((c,i)=>{
+          const medals=['🥇','🥈','🥉'];
+          const pct=Math.min(100,Math.round((c.pontos/meta)*100));
+          return `<div style="display:flex;align-items:center;gap:.5rem;margin-bottom:.375rem">
+            <span style="font-size:14px">${medals[i]}</span>
+            <div style="flex:1">
+              <div style="font-size:12px;font-weight:700;color:white">${escHtml(c.nome.split(' ')[0])}</div>
+              <div style="height:3px;background:rgba(255,255,255,.1);border-radius:100px"><div style="height:100%;width:${pct}%;background:linear-gradient(90deg,#a855f7,#ec4899);border-radius:100px"></div></div>
+            </div>
+            <span style="font-size:11px;color:#a855f7;font-family:var(--mono)">${c.pontos}</span>
+          </div>`;
+        }).join('')}
+      </div>`;
+  }
+
+  // Mostrar após 1.5s
+  setTimeout(()=>{
+    document.getElementById('pp-notif').style.display='flex';
+  }, 1500);
+}
+
+function closePPNotif(){
+  document.getElementById('pp-notif').style.display='none';
+}
+
 // ── INIT ───────────────────────────────────────────────────
 async function init(){
   try{
@@ -315,6 +415,7 @@ async function init(){
     renderRewardsPreview();
     renderRankingPreview();
     renderPremiumPreview();
+    showPPNotif();
   }catch(e){console.error(e);}
 }
 
@@ -710,6 +811,76 @@ async function doResgate(cid,rid){
 
 function closeModal(){document.getElementById('overlay').style.display='none';}
 function overlayClick(e){if(e.target===document.getElementById('overlay'))closeModal();}
+
+
+// ── NOTIFICAÇÃO PREMIUM IN-APP ──────────────────────────────
+function showPPNotif(){
+  const pp = config.premio_premium;
+  if(!pp || !pp.ativo || pp.ganhador_nome) return;
+
+  // Mostrar só uma vez por sessão
+  if(sessionStorage.getItem('pp_notif_shown')) return;
+  sessionStorage.setItem('pp_notif_shown', '1');
+
+  const meta = pp.pontos;
+  const rank = [...ranking].sort((a,b)=>b.pontos-a.pontos);
+
+  // Imagem ou emoji
+  const imgWrap = document.getElementById('pp-notif-img-wrap');
+  if(pp.imagem_url){
+    imgWrap.innerHTML = `<img src="${pp.imagem_url}" class="pp-notif-img" onerror="this.parentElement.innerHTML='<div class=\"pp-notif-img-placeholder\">${pp.emoji||'🏆'}</div>'">`;
+  } else {
+    imgWrap.innerHTML = `<div class="pp-notif-img-placeholder">${pp.emoji||'🏆'}</div>`;
+  }
+
+  document.getElementById('pp-notif-title').textContent = pp.nome;
+  document.getElementById('pp-notif-desc').textContent = pp.descricao || `Acumule ${meta} pontos e ganhe!`;
+
+  // Posição no rank (genérica se não logado)
+  const rankEl = document.getElementById('pp-notif-rank');
+  if(currentCustomer){
+    const pos = rank.findIndex(c=>c.id===currentCustomer.id)+1 || rank.length+1;
+    const pct = Math.min(100,Math.round((currentCustomer.pontos/meta)*100));
+    const faltam = Math.max(0, meta - currentCustomer.pontos);
+    const medals = {1:'🥇',2:'🥈',3:'🥉'};
+    const posStr = medals[pos] ? medals[pos] : `#${pos}`;
+    rankEl.innerHTML = `
+      <div class="pp-notif-pos">${posStr}</div>
+      <div class="pp-notif-info">
+        <div style="font-size:13px;font-weight:700;color:white">Você está em ${pos}º lugar!</div>
+        <div style="font-size:11px;color:rgba(255,255,255,.5);margin-bottom:.375rem">${currentCustomer.pontos}/${meta} pts · faltam ${faltam}</div>
+        <div class="pp-notif-prog"><div class="pp-notif-prog-fill" style="width:${pct}%"></div></div>
+      </div>`;
+  } else {
+    // Mostrar top 3 geral
+    const top3 = rank.slice(0,3);
+    rankEl.innerHTML = `
+      <div style="width:100%">
+        <div style="font-size:12px;font-weight:700;color:rgba(255,255,255,.6);margin-bottom:.5rem;text-transform:uppercase;letter-spacing:.5px">🏁 Liderança atual</div>
+        ${top3.map((c,i)=>{
+          const medals=['🥇','🥈','🥉'];
+          const pct=Math.min(100,Math.round((c.pontos/meta)*100));
+          return `<div style="display:flex;align-items:center;gap:.5rem;margin-bottom:.375rem">
+            <span style="font-size:14px">${medals[i]}</span>
+            <div style="flex:1">
+              <div style="font-size:12px;font-weight:700;color:white">${escHtml(c.nome.split(' ')[0])}</div>
+              <div style="height:3px;background:rgba(255,255,255,.1);border-radius:100px"><div style="height:100%;width:${pct}%;background:linear-gradient(90deg,#a855f7,#ec4899);border-radius:100px"></div></div>
+            </div>
+            <span style="font-size:11px;color:#a855f7;font-family:var(--mono)">${c.pontos}</span>
+          </div>`;
+        }).join('')}
+      </div>`;
+  }
+
+  // Mostrar após 1.5s
+  setTimeout(()=>{
+    document.getElementById('pp-notif').style.display='flex';
+  }, 1500);
+}
+
+function closePPNotif(){
+  document.getElementById('pp-notif').style.display='none';
+}
 
 // ── INIT ───────────────────────────────────────────────────
 init();
