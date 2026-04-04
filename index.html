@@ -708,6 +708,21 @@ async function expirarInativos(){
   await loadAll();
 }
 
+
+// ── WHATSAPP ────────────────────────────────────────────────
+function enviarWhatsApp(cid){
+  const c = S.customers.find(x => x.id === cid);
+  if(!c || !c.tel) return;
+  const tel = c.tel.replace(/\D/g,'');
+  // Adiciona 55 (Brasil) se não tiver código de país
+  const telFull = tel.startsWith('55') ? tel : '55' + tel;
+  const link = 'https://ppeu07280-oss.github.io/acaipoints/acaipoints-cliente.html';
+  const nome = c.nome.split(' ')[0];
+  const msg = `Olá ${nome}! 🍇\n\nVeja seus pontos do programa de fidelidade *João do Açaí* aqui:\n👉 ${link}\n\nBusque pelo seu número e acompanhe seus pontos, prêmios e ranking! 😊`;
+  const url = `https://wa.me/${telFull}?text=${encodeURIComponent(msg)}`;
+  window.open(url, '_blank');
+}
+
 // ── MODALS ─────────────────────────────────────────────────
 async function openModal(cid){
   S.selCust=cid;
@@ -745,6 +760,7 @@ function renderCustModal(txs){
       <button class="btn btn-outline" style="flex:1" onclick="showResgate('${c.id}')">🎁 Resgatar</button>
     </div>
     <button class="btn btn-outline btn-block mb1" style="border-color:var(--amber-light);color:var(--amber)" onclick="showEditCust('${c.id}')">✏️ Editar Cliente</button>
+    ${c.tel ? `<button class="btn btn-block mb1" style="background:#25D366;color:white;border:none" onclick="enviarWhatsApp('${c.id}')">📲 Enviar link pelo WhatsApp</button>` : `<div style="font-size:11px;color:var(--muted);text-align:center;margin-bottom:.75rem">📲 Cadastre o telefone para enviar WhatsApp</div>`}
     <div class="sec-hdr"><span class="sec-title">Histórico</span></div>
     ${txs.length===0?`<div class="text-muted text-sm" style="text-align:center;padding:1rem">Sem transações ainda</div>`:
     txs.map(h=>`<div class="tx-row">
