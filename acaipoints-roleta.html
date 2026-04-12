@@ -1,0 +1,456 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Roleta de Prêmios</title>
+<link href="https://fonts.googleapis.com/css2?family=Unbounded:wght@400;700;900&family=DM+Sans:opsz,wght@9..40,400;9..40,600&display=swap" rel="stylesheet">
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+<style>
+*{box-sizing:border-box;margin:0;padding:0}
+:root{
+  --bg:#0a0a0f;--card:#111118;--card2:#18181f;
+  --white:#F0EEE9;--accent:#00FF88;
+  --muted:#6b6b78;--border:rgba(255,255,255,.08);
+  --font:'Unbounded',sans-serif;--body:'DM Sans',sans-serif;
+}
+html,body{min-height:100vh;background:var(--bg);color:var(--white);font-family:var(--body);overflow-x:hidden}
+
+/* LOGIN */
+#login{position:fixed;inset:0;background:var(--bg);display:flex;align-items:center;justify-content:center;z-index:999;padding:1rem}
+.lbox{width:100%;max-width:360px;background:var(--card);border:1px solid rgba(255,255,255,.12);border-radius:20px;padding:2rem}
+.llogo{font-family:var(--font);font-weight:900;font-size:.95rem;text-align:center;margin-bottom:1.5rem}
+.llogo b{color:var(--accent)}
+.linp{width:100%;padding:.8rem 1rem;background:var(--card2);border:1.5px solid rgba(255,255,255,.1);border-radius:10px;font-size:.88rem;color:var(--white);font-family:var(--body);outline:none;margin-bottom:.75rem}
+.linp:focus{border-color:var(--accent)}
+.lbtn{width:100%;padding:.875rem;background:var(--accent);color:#050508;border:none;border-radius:10px;font-family:var(--font);font-size:.82rem;font-weight:700;cursor:pointer}
+.lerr{font-size:.72rem;color:#FF3D6B;text-align:center;margin-top:.5rem;min-height:16px}
+
+/* APP */
+#app{display:none;min-height:100vh;padding-bottom:3rem}
+#app.show{display:block}
+
+/* HEADER */
+.hdr{background:var(--card);border-bottom:1px solid var(--border);padding:1rem 1.25rem;display:flex;align-items:center;justify-content:space-between;position:sticky;top:0;z-index:100}
+.hdr-logo{font-family:var(--font);font-size:.82rem;font-weight:900}
+.hdr-logo b{color:var(--accent)}
+.hdr-pts{display:flex;align-items:center;gap:.375rem;padding:.375rem .875rem;background:rgba(0,255,136,.08);border:1px solid rgba(0,255,136,.15);border-radius:100px;font-family:var(--font);font-size:.75rem;font-weight:700;color:var(--accent)}
+
+/* ROLETA SECTION */
+.roleta-section{padding:1.5rem 1rem;max-width:500px;margin:0 auto;text-align:center}
+.roleta-title{font-family:var(--font);font-size:1.2rem;font-weight:900;margin-bottom:.375rem}
+.roleta-sub{font-size:.8rem;color:var(--muted);margin-bottom:1.5rem}
+
+/* ROLETA WHEEL */
+.wheel-wrap{position:relative;width:300px;height:300px;margin:0 auto 1.5rem}
+.wheel-container{position:relative;width:300px;height:300px}
+canvas#wheel{border-radius:50%;box-shadow:0 0 40px rgba(0,255,136,.2),0 0 80px rgba(0,0,0,.5);display:block}
+
+/* PONTEIRO */
+.pointer{position:absolute;top:-18px;left:50%;transform:translateX(-50%);width:0;height:0;border-left:14px solid transparent;border-right:14px solid transparent;border-top:32px solid #FF6B9D;filter:drop-shadow(0 2px 8px rgba(255,107,157,.5));z-index:10}
+
+/* OUTER RING */
+.wheel-ring{position:absolute;inset:-8px;border-radius:50%;background:linear-gradient(135deg,#FFD700,#FF6B35,#FF6B9D,#9D6BFF,#00CCFF,#00FF88,#FFD700);padding:4px;z-index:-1}
+.wheel-ring-inner{width:100%;height:100%;border-radius:50%;background:var(--bg)}
+
+/* SPIN BTN */
+.btn-spin{padding:1rem 2.5rem;background:linear-gradient(135deg,#FFD700,#FF9500);color:#050508;border:none;border-radius:100px;font-family:var(--font);font-size:.9rem;font-weight:900;cursor:pointer;transition:all .2s;box-shadow:0 8px 30px rgba(255,214,0,.3)}
+.btn-spin:hover{transform:translateY(-2px);box-shadow:0 12px 40px rgba(255,214,0,.4)}
+.btn-spin:disabled{opacity:.4;cursor:not-allowed;transform:none}
+.spin-cost{font-size:.72rem;color:var(--muted);margin-top:.5rem}
+
+/* RESULTADO MODAL */
+.result-overlay{position:fixed;inset:0;background:rgba(0,0,0,.85);z-index:500;display:none;align-items:center;justify-content:center;padding:1rem}
+.result-overlay.show{display:flex}
+.result-box{background:var(--card);border:1px solid rgba(255,255,255,.12);border-radius:24px;padding:2rem;width:100%;max-width:360px;text-align:center;position:relative;overflow:hidden}
+.result-glow{position:absolute;width:200px;height:200px;border-radius:50%;background:rgba(255,214,0,.1);top:50%;left:50%;transform:translate(-50%,-50%);filter:blur(40px);pointer-events:none}
+.result-icon{font-size:3.5rem;margin-bottom:.75rem;display:block}
+.result-title{font-family:var(--font);font-size:1.1rem;font-weight:900;margin-bottom:.375rem}
+.result-prize{font-size:.9rem;color:var(--accent);font-weight:600;margin-bottom:.5rem}
+.result-code{background:var(--card2);border:1px dashed rgba(0,255,136,.3);border-radius:10px;padding:.75rem 1rem;font-family:var(--font);font-size:1.1rem;font-weight:900;color:var(--accent);letter-spacing:.1em;margin:.75rem 0}
+.result-sub{font-size:.72rem;color:var(--muted);margin-bottom:1.25rem}
+.btn-result{width:100%;padding:.875rem;background:var(--accent);color:#050508;border:none;border-radius:12px;font-family:var(--font);font-size:.82rem;font-weight:700;cursor:pointer;margin-bottom:.5rem}
+.btn-result-outline{width:100%;padding:.875rem;background:none;border:1px solid rgba(255,255,255,.1);color:var(--muted);border-radius:12px;font-family:var(--font);font-size:.78rem;font-weight:600;cursor:pointer}
+
+/* MEUS CUPONS */
+.cupons-section{padding:0 1rem 1rem;max-width:500px;margin:0 auto}
+.section-title{font-family:var(--font);font-size:.78rem;font-weight:700;margin-bottom:.875rem;color:var(--muted);text-transform:uppercase;letter-spacing:.06em}
+.cupon-card{background:var(--card);border:1px solid var(--border);border-radius:14px;padding:1rem;margin-bottom:.625rem;display:flex;align-items:center;gap:.875rem}
+.cupon-icon{font-size:1.75rem;flex-shrink:0}
+.cupon-info{flex:1;min-width:0}
+.cupon-name{font-size:.85rem;font-weight:700;margin-bottom:.2rem}
+.cupon-code{font-family:var(--font);font-size:.75rem;color:var(--accent);letter-spacing:.05em}
+.cupon-exp{font-size:.68rem;color:var(--muted);margin-top:.2rem}
+.cupon-badge{font-size:.65rem;font-weight:700;padding:.2rem .5rem;border-radius:100px;flex-shrink:0}
+.cupon-badge.ativo{background:rgba(0,255,136,.12);color:var(--accent)}
+.cupon-badge.usado{background:rgba(255,255,255,.06);color:var(--muted)}
+
+/* CONFETTI */
+.confetti-piece{position:fixed;width:8px;height:8px;border-radius:2px;pointer-events:none;z-index:9999;animation:confetti-fall 3s ease-in forwards}
+@keyframes confetti-fall{
+  0%{transform:translateY(-100px) rotate(0deg);opacity:1}
+  100%{transform:translateY(100vh) rotate(720deg);opacity:0}
+}
+
+/* TOAST */
+.toast{position:fixed;bottom:2rem;left:50%;transform:translateX(-50%);background:var(--card);border:1px solid rgba(255,255,255,.12);padding:.625rem 1.25rem;border-radius:100px;font-size:.78rem;font-weight:600;display:none;z-index:999;white-space:nowrap}
+.toast.show{display:block}
+</style>
+</head>
+<body>
+
+<!-- LOGIN -->
+<div id="login">
+  <div class="lbox">
+    <div class="llogo"><b>J</b>gerenteAI · 🎡 Roleta</div>
+    <input class="linp" id="em" type="email" placeholder="seu@email.com">
+    <input class="linp" id="pw" type="password" placeholder="Senha" onkeydown="if(event.keyCode===13)login()">
+    <button class="lbtn" onclick="login()">Entrar →</button>
+    <div class="lerr" id="lerr"></div>
+  </div>
+</div>
+
+<!-- APP -->
+<div id="app">
+  <div class="hdr">
+    <div class="hdr-logo"><b>J</b>gerenteAI · 🎡 Roleta</div>
+    <div class="hdr-pts">⭐ <span id="pts-display">0</span> pts</div>
+  </div>
+
+  <!-- ROLETA -->
+  <div class="roleta-section">
+    <div class="roleta-title">Gire e Ganhe!</div>
+    <div class="roleta-sub">Cada giro custa <b style="color:var(--accent)">0,5 ponto</b>. Boa sorte! 🍀</div>
+
+    <div class="wheel-wrap">
+      <div class="wheel-ring"><div class="wheel-ring-inner"></div></div>
+      <div class="wheel-container">
+        <canvas id="wheel" width="300" height="300"></canvas>
+        <div class="pointer"></div>
+      </div>
+    </div>
+
+    <button class="btn-spin" id="btn-spin" onclick="girar()">🎡 GIRAR</button>
+    <div class="spin-cost" id="spin-msg">Você tem <b id="giros-disp">0</b> giro(s) disponíveis</div>
+  </div>
+
+  <!-- MEUS CUPONS -->
+  <div class="cupons-section">
+    <div class="section-title">Meus Cupons</div>
+    <div id="cupons-list"><div style="text-align:center;padding:1.5rem;color:var(--muted);font-size:.82rem">Nenhum cupom ainda. Gire a roleta!</div></div>
+  </div>
+</div>
+
+<!-- RESULTADO -->
+<div class="result-overlay" id="result-overlay">
+  <div class="result-box">
+    <div class="result-glow"></div>
+    <span class="result-icon" id="r-icon">🎁</span>
+    <div class="result-title" id="r-title">Parabéns!</div>
+    <div class="result-prize" id="r-prize"></div>
+    <div class="result-code" id="r-code" style="display:none"></div>
+    <div class="result-sub" id="r-sub"></div>
+    <button class="btn-result" onclick="copiarCupom()">📋 Copiar cupom</button>
+    <button class="btn-result-outline" onclick="fecharResultado()">Continuar</button>
+  </div>
+</div>
+
+<div class="toast" id="toast"></div>
+
+<script>
+const SB_URL = 'https://hnculphposmgfvaeliiw.supabase.co';
+const SB_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImhuY3VscGhwb3NtZ2Z2YWVsaWl3Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzQ4MTE4MDIsImV4cCI6MjA5MDM4NzgwMn0.mlkDEf0HI6XQm2mX7Ee3CWcR8WxevJiy3l2xBdvTaNM';
+const { createClient } = supabase;
+const sb = createClient(SB_URL, SB_KEY);
+
+// ── SEGMENTOS DA ROLETA ──
+// prob = probabilidade (soma deve ser 100)
+const SEGMENTS = [
+  { label: 'Açaí\nR$15 grátis', icon: '🍇', color: '#7C3AED', prob: 3, premio: 'Açaí R$15 grátis', desconto: 100, minimo: 0 },
+  { label: '20%\ndesconto',     icon: '💸', color: '#DC2626', prob: 8, premio: '20% de desconto', desconto: 20, minimo: 20 },
+  { label: 'Tente\nNovamente',  icon: '🔄', color: '#374151', prob: 25, premio: null, desconto: 0, minimo: 0 },
+  { label: '5%\ndesconto',      icon: '🎟️', color: '#1D4ED8', prob: 20, premio: '5% de desconto', desconto: 5, minimo: 10 },
+  { label: '10%\ndesconto',     icon: '🎯', color: '#065F46', prob: 15, premio: '10% de desconto', desconto: 10, minimo: 15 },
+  { label: 'Tente\nNovamente',  icon: '🔄', color: '#374151', prob: 15, premio: null, desconto: 0, minimo: 0 },
+  { label: '15%\ndesconto',     icon: '⭐', color: '#B45309', prob: 9, premio: '15% de desconto', desconto: 15, minimo: 20 },
+  { label: 'Brinde\nSurpresa',  icon: '🎁', color: '#BE185D', prob: 5, premio: 'Brinde surpresa', desconto: 0, minimo: 0 },
+];
+
+let usuario = null, cliente = null, company = null;
+let spinning = false;
+let currentPrize = null;
+let toastT;
+
+// ── AUTH ──
+async function login(){
+  var em = document.getElementById('em').value.trim();
+  var pw = document.getElementById('pw').value;
+  var err = document.getElementById('lerr');
+  if(!em||!pw){ err.textContent='Preencha email e senha'; return; }
+  var {data, error} = await sb.auth.signInWithPassword({email:em, password:pw});
+  if(error){ err.textContent='Email ou senha incorretos'; return; }
+  await boot(data.user);
+}
+
+async function boot(user){
+  var {data:usr} = await sb.from('usuarios').select('*').eq('auth_id', user.id).maybeSingle();
+  if(!usr){ document.getElementById('lerr').textContent='Usuário não encontrado'; return; }
+  usuario = usr;
+  var {data:comp} = await sb.from('companies').select('*').eq('id', usr.company_id).single();
+  company = comp;
+  // Buscar customer
+  var {data:cl} = await sb.from('customers').select('*').eq('company_id', usr.company_id).eq('email', user.email).maybeSingle();
+  cliente = cl;
+  document.getElementById('login').style.display = 'none';
+  document.getElementById('app').classList.add('show');
+  atualizarPontos();
+  renderCupons();
+  desenharRoleta();
+}
+
+function atualizarPontos(){
+  var pts = cliente ? (cliente.pontos||0) : 0;
+  document.getElementById('pts-display').textContent = pts;
+  var giros = Math.floor(pts / 0.5);
+  document.getElementById('giros-disp').textContent = giros;
+  document.getElementById('btn-spin').disabled = giros < 1 || spinning;
+}
+
+// ── ROLETA CANVAS ──
+function desenharRoleta(rotacao){
+  var canvas = document.getElementById('wheel');
+  var ctx = canvas.getContext('2d');
+  var cx = 150, cy = 150, r = 148;
+  var total = SEGMENTS.length;
+  var arc = (2*Math.PI)/total;
+  var rot = (rotacao||0) - Math.PI/2;
+
+  ctx.clearRect(0,0,300,300);
+
+  SEGMENTS.forEach(function(seg, i){
+    var start = rot + i*arc;
+    var end = start + arc;
+
+    // Fatia
+    ctx.beginPath();
+    ctx.moveTo(cx, cy);
+    ctx.arc(cx, cy, r, start, end);
+    ctx.closePath();
+    ctx.fillStyle = seg.color;
+    ctx.fill();
+    ctx.strokeStyle = 'rgba(0,0,0,.3)';
+    ctx.lineWidth = 2;
+    ctx.stroke();
+
+    // Texto
+    ctx.save();
+    ctx.translate(cx, cy);
+    ctx.rotate(start + arc/2);
+    ctx.textAlign = 'right';
+    ctx.fillStyle = '#fff';
+    ctx.shadowColor = 'rgba(0,0,0,.5)';
+    ctx.shadowBlur = 4;
+
+    var lines = seg.label.split('\n');
+    var fontSize = lines[0].length > 8 ? 10 : 12;
+    ctx.font = 'bold '+fontSize+'px "DM Sans", sans-serif';
+    lines.forEach(function(line, li){
+      ctx.fillText(line, r-12, (li - (lines.length-1)/2) * (fontSize+2));
+    });
+
+    // Ícone
+    ctx.font = '18px serif';
+    ctx.textAlign = 'right';
+    ctx.fillText(seg.icon, r-60, 6);
+
+    ctx.restore();
+  });
+
+  // Centro
+  ctx.beginPath();
+  ctx.arc(cx, cy, 24, 0, 2*Math.PI);
+  ctx.fillStyle = '#050508';
+  ctx.fill();
+  ctx.strokeStyle = 'rgba(255,255,255,.15)';
+  ctx.lineWidth = 3;
+  ctx.stroke();
+
+  // Logo no centro
+  ctx.fillStyle = '#00FF88';
+  ctx.font = 'bold 10px "Unbounded", sans-serif';
+  ctx.textAlign = 'center';
+  ctx.textBaseline = 'middle';
+  ctx.fillText('J', cx, cy);
+}
+
+// ── GIRAR ──
+function sortearPremio(){
+  var rand = Math.random() * 100;
+  var acc = 0;
+  for(var i=0; i<SEGMENTS.length; i++){
+    acc += SEGMENTS[i].prob;
+    if(rand <= acc) return i;
+  }
+  return SEGMENTS.length-1;
+}
+
+function gerarCodigo(){
+  return Math.random().toString(36).slice(2,8).toUpperCase();
+}
+
+async function girar(){
+  if(spinning) return;
+  var pts = cliente ? (cliente.pontos||0) : 0;
+  if(pts < 0.5){ showToast('⚠️ Pontos insuficientes!'); return; }
+
+  spinning = true;
+  document.getElementById('btn-spin').disabled = true;
+
+  // Descontar 0.5 ponto
+  var novosPts = Math.max(0, pts - 0.5);
+  await sb.from('customers').update({pontos: novosPts}).eq('id', cliente.id);
+  if(cliente) cliente.pontos = novosPts;
+  atualizarPontos();
+
+  // Sortear
+  var idx = sortearPremio();
+  var totalRot = (Math.PI*2*8) + (idx*(Math.PI*2/SEGMENTS.length)) + (Math.PI*2/SEGMENTS.length/2);
+  var start = performance.now();
+  var duration = 5000;
+  var startAngle = 0;
+
+  function animate(now){
+    var elapsed = now - start;
+    var progress = Math.min(elapsed/duration, 1);
+    // Easing: ease-out quint
+    var ease = 1 - Math.pow(1-progress, 5);
+    var currentAngle = startAngle + totalRot * ease;
+    desenharRoleta(currentAngle);
+
+    if(progress < 1){
+      requestAnimationFrame(animate);
+    } else {
+      spinning = false;
+      mostrarResultado(idx);
+    }
+  }
+  requestAnimationFrame(animate);
+}
+
+async function mostrarResultado(idx){
+  var seg = SEGMENTS[idx];
+  currentPrize = seg;
+
+  if(!seg.premio){
+    // Tente novamente
+    document.getElementById('r-icon').textContent = '😅';
+    document.getElementById('r-title').textContent = 'Quase lá!';
+    document.getElementById('r-prize').textContent = 'Tente novamente na próxima!';
+    document.getElementById('r-code').style.display = 'none';
+    document.getElementById('r-sub').textContent = 'Continue acumulando pontos para novos giros.';
+    document.querySelector('.btn-result').style.display = 'none';
+  } else {
+    // Ganhou!
+    var codigo = gerarCodigo();
+    var validade = new Date(Date.now() + 30*24*60*60*1000).toLocaleDateString('pt-BR');
+
+    // Salvar cupom
+    await sb.from('cupons').insert({
+      company_id: company.id,
+      customer_id: cliente.id,
+      premio: seg.premio,
+      desconto: seg.desconto,
+      codigo: codigo,
+      validade: new Date(Date.now() + 30*24*60*60*1000).toISOString(),
+      status: 'ativo'
+    });
+
+    currentPrize = {...seg, codigo, validade};
+
+    document.getElementById('r-icon').textContent = seg.icon;
+    document.getElementById('r-title').textContent = 'Você ganhou!';
+    document.getElementById('r-prize').textContent = seg.premio;
+    document.getElementById('r-code').style.display = 'block';
+    document.getElementById('r-code').textContent = codigo;
+    document.getElementById('r-sub').textContent = 'Válido até '+validade+'. Apresente na loja.';
+    document.querySelector('.btn-result').style.display = 'block';
+
+    confetti();
+    renderCupons();
+  }
+
+  document.getElementById('result-overlay').classList.add('show');
+  atualizarPontos();
+}
+
+function copiarCupom(){
+  if(currentPrize && currentPrize.codigo){
+    navigator.clipboard.writeText(currentPrize.codigo).then(function(){
+      showToast('📋 Cupom copiado!');
+    });
+  }
+}
+
+function fecharResultado(){
+  document.getElementById('result-overlay').classList.remove('show');
+}
+
+// ── CUPONS ──
+async function renderCupons(){
+  if(!cliente) return;
+  var {data} = await sb.from('cupons').select('*').eq('customer_id', cliente.id).order('created_at',{ascending:false});
+  var el = document.getElementById('cupons-list');
+  if(!data||data.length===0){
+    el.innerHTML = '<div style="text-align:center;padding:1.5rem;color:var(--muted);font-size:.82rem">Nenhum cupom ainda. Gire a roleta!</div>';
+    return;
+  }
+  el.innerHTML = data.map(function(c){
+    var ativo = c.status==='ativo';
+    var validade = c.validade ? new Date(c.validade).toLocaleDateString('pt-BR') : '—';
+    return '<div class="cupon-card">'
+      +'<div class="cupon-icon">🎟️</div>'
+      +'<div class="cupon-info">'
+      +'<div class="cupon-name">'+c.premio+'</div>'
+      +'<div class="cupon-code">'+c.codigo+'</div>'
+      +'<div class="cupon-exp">Válido até '+validade+'</div>'
+      +'</div>'
+      +'<span class="cupon-badge '+(ativo?'ativo':'usado')+'">'+(ativo?'✅ Ativo':'Usado')+'</span>'
+      +'</div>';
+  }).join('');
+}
+
+// ── CONFETTI ──
+function confetti(){
+  var colors = ['#FFD700','#FF6B9D','#00FF88','#9D6BFF','#00CCFF','#FF6B35'];
+  for(var i=0; i<60; i++){
+    var el = document.createElement('div');
+    el.className = 'confetti-piece';
+    el.style.left = Math.random()*100+'vw';
+    el.style.top = '-20px';
+    el.style.background = colors[Math.floor(Math.random()*colors.length)];
+    el.style.borderRadius = Math.random()>0.5?'50%':'2px';
+    el.style.animationDelay = Math.random()*2+'s';
+    el.style.animationDuration = (2+Math.random()*2)+'s';
+    document.body.appendChild(el);
+    setTimeout(function(){ el.remove(); }, 4000);
+  }
+}
+
+// ── TOAST ──
+function showToast(msg){
+  var t = document.getElementById('toast');
+  t.textContent = msg;
+  t.classList.add('show');
+  clearTimeout(toastT);
+  toastT = setTimeout(function(){ t.classList.remove('show'); }, 2500);
+}
+
+// ── BOOT ──
+(async function(){
+  var {data} = await sb.auth.getSession();
+  if(data&&data.session&&data.session.user) await boot(data.session.user);
+  else desenharRoleta();
+})();
+</script>
+</body>
+</html>
